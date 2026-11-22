@@ -150,7 +150,7 @@ Identifiers refer to the V5 blueprint. The engineering owner, prerequisite, revi
 - [x] DB07 — Migration 00009 adds and backfills moderation records and audit events. Empty-schema rollback and populated-history protection verified.
 - [x] R08 — Role-scoped dispute, content, finance and audit routes.
 
-Local verification includes lint, race-enabled Go tests, both binaries, eight PostgreSQL integration suites, fixture replay, and the targeted Chromium dispute test. Live policy and release review remain in X03, X06, and M9.
+Local verification includes lint, race-enabled Go tests, both binaries, eight PostgreSQL integration suites, fixture replay, a populated M7 upgrade, and the targeted Chromium dispute test. Live policy and release review remain in X03, X06, and M9.
 
 ### M9
 
