@@ -2,6 +2,7 @@
 
 import base64
 import os
+import re
 import secrets
 from urllib.parse import urlsplit
 
@@ -186,12 +187,20 @@ def verify_upload_progress(browser, base_url):
         "name": "fixture.png", "mimeType": "image/png", "buffer": base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGNMrU1jYGBgYmBgYGBgAAAPiQFMBq9DwQAAAABJRU5ErkJggg==")
     })
 
-    def verify_before_upload(route):
-        expect(page.locator("#upload-progress")).to_be_visible()
-        route.continue_()
-
-    page.route(base_url + "/sell/new", verify_before_upload)
-    page.get_by_role("button", name="Save draft", exact=True).click()
+    page.evaluate("""() => {
+        const progress = document.querySelector('#upload-progress');
+        new MutationObserver(() => {
+            if (!progress.hidden) sessionStorage.setItem('verified-upload-progress', 'yes');
+        }).observe(progress, {attributes: true});
+    }""")
+    with page.expect_response(
+        lambda response: response.url.endswith("/sell/new")
+        and response.request.method == "POST"
+    ) as submitted:
+        page.get_by_role("button", name="Save draft", exact=True).click()
+    assert submitted.value.status == 204, f"Upload returned {submitted.value.status}"
+    expect(page).to_have_url(re.compile(r"/sell/drafts/[0-9a-f-]+\?saved=1$"))
+    assert page.evaluate("sessionStorage.getItem('verified-upload-progress')") == "yes"
     expect(page.locator("img[alt='Current draft image']")).to_be_visible()
     expect(page.get_by_role("status")).to_contain_text("Draft saved")
     page.close()

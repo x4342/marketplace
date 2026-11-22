@@ -22,6 +22,7 @@ if (draftForm && typeof XMLHttpRequest === 'function') {
     if (event.submitter) data.set(event.submitter.name, event.submitter.value);
     const request = new XMLHttpRequest();
     request.open('POST', draftForm.action);
+    request.setRequestHeader('X-Draft-Upload', '1');
     request.timeout = 20000;
     progress.hidden = false;
     progress.removeAttribute('value');
@@ -32,12 +33,10 @@ if (draftForm && typeof XMLHttpRequest === 'function') {
       if (upload.lengthComputable) progress.value = 100 * upload.loaded / upload.total;
     });
     request.addEventListener('load', () => {
-      if (request.status === 200 && request.responseURL !== draftForm.action) {
-        const next = new URL(request.responseURL);
-        if (next.origin === location.origin) {
-          location.assign(next);
-          return;
-        }
+      const destination = request.getResponseHeader('X-Draft-Location');
+      if (request.status === 204 && destination?.startsWith('/sell/drafts/')) {
+        location.assign(destination);
+        return;
       }
       const page = new DOMParser().parseFromString(request.responseText, 'text/html');
       message.textContent = page.querySelector('#seller-errors')?.textContent.trim()

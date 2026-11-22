@@ -172,6 +172,11 @@ func (p sellerPages) save(w http.ResponseWriter, r *http.Request) {
 	} else {
 		destination += "?saved=1"
 	}
+	if r.Header.Get("X-Draft-Upload") == "1" {
+		w.Header().Set("X-Draft-Location", destination)
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
 	http.Redirect(w, r, destination, http.StatusSeeOther)
 }
 
