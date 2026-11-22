@@ -1,0 +1,9 @@
+# Private Marketplace engineering guide
+
+- Follow the V5 product contract and the gates in the implementation plan. Treat proposed defaults as reversible and record their rationale. Leave unresolved policy with the owner.
+- Keep a Go modular monolith using net/http, templ, HTMX, Tailwind CSS, daisyUI, PostgreSQL, pgx, sqlc, and goose. Keep transport, domain rules, persistence, and providers separate. Use prepared queries, transactions for state transitions, and database constraints for invariants.
+- Render whole pages on the server. Build working GET forms, POST forms, links, validation, and feedback before adding HTMX. Serve all assets locally, use system fonts, and avoid tracking.
+- Use the Minimal Marketplace Dashboard design. Keep neutral surfaces, one accent, 4px spacing increments, approximately 8px control and 12px card radii, and visible keyboard focus. Verify mobile at 320 and 375px, tablet at 768px, and desktop at 1024px and above. Use one mobile and two desktop discovery columns and always show sort above results.
+- Check resource ownership and permissions server-side. Separate content and finance roles. Protect mutations against CSRF, minimize data collection, and exclude credentials, session tokens, wallet secrets, message bodies, and shipping addresses from logs.
+- Use integer monetary units and transactional, idempotent, append-only accounting. Keep all payment and payout providers simulated. Live integrations and public deployment require owner approval.
+- Format Go and templ source. Exercise positive, negative, migration, responsive, and no-JavaScript cases as applicable. Record actual evidence and gaps. Open focused feature PRs and leave merging and default-branch initialization to the owner unless authorized.

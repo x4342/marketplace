@@ -1,0 +1,93 @@
+package templates
+
+type AuthForm struct {
+	Path        string
+	Title       string
+	Action      string
+	CSRF        string
+	Username    string
+	Error       string
+	NewPassword bool
+	Recovery    bool
+}
+
+templ Credentials(theme string, form AuthForm) {
+	@AppShell(form.Title, theme) {
+		@PageHeader(form.Title, "Use your marketplace username.")
+		<form class="card status-card auth-form" action={ templ.SafeURL(form.Path) } method="post">
+			if form.Error != "" {
+				<p class="alert alert-error" role="alert">{ form.Error }</p>
+			}
+			<input type="hidden" name="csrf" value={ form.CSRF }/>
+			<label for="username">Username</label>
+			<input class="input" id="username" name="username" value={ form.Username } maxlength="30" autocomplete="username" autocapitalize="none" spellcheck="false" required/>
+			if form.NewPassword && !form.Recovery {
+				<p>Use 3–30 letters, numbers, or underscores.</p>
+			}
+			if form.Recovery {
+				<label for="code">Recovery code</label>
+				<input class="input" id="code" name="code" autocomplete="off" autocapitalize="none" spellcheck="false" maxlength="43" required/>
+			}
+			if form.NewPassword {
+				<label for="password">New password</label>
+				<input class="input" id="password" name="password" type="password" autocomplete="new-password" minlength="12" maxlength="128" required/>
+				<p>Use at least 12 characters.</p>
+			} else {
+				<label for="password">Password</label>
+				<input class="input" id="password" name="password" type="password" autocomplete="current-password" maxlength="128" required/>
+			}
+			<button class="btn btn-primary" type="submit">{ form.Action }</button>
+		</form>
+		<nav class="auth-links" aria-label="Account options">
+			if form.Path != "/login" {
+				<a href="/login">Sign in</a>
+			}
+			if form.Path != "/register" {
+				<a href="/register">Create account</a>
+			}
+			if form.Path != "/recover" {
+				<a href="/recover">Recover account</a>
+			}
+		</nav>
+	}
+}
+
+templ RecoveryCodes(theme string, codes []string) {
+	@AppShell("Recovery codes", theme) {
+		@PageHeader("Save your recovery codes", "Store these codes privately. Each code can be used once. They are shown only here.")
+		<section class="card status-card auth-form" aria-label="Recovery codes">
+			<ul class="recovery-codes">
+				for _, code := range codes {
+					<li><code>{ code }</code></li>
+				}
+			</ul>
+			<a class="btn btn-primary" href="/account">Continue to account</a>
+		</section>
+	}
+}
+
+templ Account(theme, username, csrf string, moderator, finance bool) {
+	@AppShell("Account", theme) {
+		@PageHeader("Account", "Signed in as "+username)
+		<section class="card status-card auth-form" aria-label="Account actions">
+			<a class="btn" href="/discover?saved=1">Saved listings</a>
+			if moderator {
+				<a class="btn" href="/admin/moderation">Moderation access</a>
+			}
+			if finance {
+				<a class="btn" href="/admin/finance">Finance access</a>
+			}
+			<form action="/logout" method="post">
+				<input type="hidden" name="csrf" value={ csrf }/>
+				<button class="btn" type="submit">Sign out</button>
+			</form>
+		</section>
+	}
+}
+
+templ RoleAccess(theme, title string) {
+	@AppShell(title+" access", theme) {
+		@PageHeader(title+" access", "This account has permission to use the "+title+" area.")
+		<a class="btn" href="/account">Back to account</a>
+	}
+}
