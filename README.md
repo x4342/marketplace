@@ -127,7 +127,7 @@ Open **Account → Earnings** to review currency-specific balances or request a 
 
 Finance can record a full simulated refund or chain reversal through **Simulated payment adjustments**. Each posts compensating journals and leaves the original entries intact. If the corresponding seller bucket cannot cover the adjustment, it fails atomically for manual follow-up. Live refund, hold, release and shortfall policies remain open. No wallet address is collected. All finance rates, amounts and provider outcomes are synthetic sandbox inputs.
 
-Migration 00008 backfills existing verified orders. It can roll back an empty financial schema and refuses to remove posted financial history. Verify on an isolated database:
+Migration 00008 backfills existing verified orders. It can roll back an empty financial schema and refuses to remove posted financial history. Run the integration test on an isolated database.
 
 ```sh
 MARKETPLACE_FINANCE_TEST_DATABASE_URL="$DATABASE_URL" go test -race ./internal/http -run TestFinancePostgres -v

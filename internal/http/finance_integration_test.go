@@ -111,6 +111,21 @@ func TestFinancePostgres(t *testing.T) {
 		}
 	}
 
+	expired, err := checkout.Create(ctx, orders.Checkout{Buyer: buyerID, Listing: listing, Key: identity.NewToken()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, "UPDATE quotes SET expires_at=now()-interval '1 minute' WHERE order_id=$1", expired); err != nil {
+		t.Fatal(err)
+	}
+	if err := checkout.SimulatePayment(ctx, expired, buyerID); !errors.Is(err, orders.ErrState) {
+		t.Fatalf("expired quote returned %v", err)
+	}
+	var expiredEntries int
+	if err := pool.QueryRow(ctx, "SELECT count(*) FROM journal_entries WHERE subject_id=$1", expired).Scan(&expiredEntries); err != nil || expiredEntries != 0 {
+		t.Fatal("expired quote posted to the ledger")
+	}
+
 	paid := purchase()
 	balances(1900, 0, 0, 0, 0)
 	complete(paid)
