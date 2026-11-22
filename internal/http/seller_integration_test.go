@@ -88,6 +88,10 @@ func TestSellerPostgres(t *testing.T) {
 	if !strings.Contains(rejected.Body.String(), title) || !strings.Contains(rejected.Body.String(), "Upload a JPEG or PNG") {
 		t.Fatal("invalid image response lost form content or upload feedback")
 	}
+	large := postListingImage(t, &owner, draft, fields, make([]byte, seller.MaxUpload+1), 422)
+	if !strings.Contains(large.Body.String(), title) || !strings.Contains(large.Body.String(), "3 MB or less") {
+		t.Fatal("oversized upload lost form content or size feedback")
+	}
 	var imageBytes bytes.Buffer
 	if err := png.Encode(&imageBytes, image.NewRGBA(image.Rect(0, 0, 10, 10))); err != nil {
 		t.Fatal(err)

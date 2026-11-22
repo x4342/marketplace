@@ -58,7 +58,7 @@ func routes(heartbeat heartbeatReader, log *slog.Logger, assets fs.FS, accounts 
 	}
 
 	assetHandler := http.StripPrefix("/assets/", http.FileServerFS(assets))
-	for _, path := range []string{"/assets/app.css", "/assets/htmx.min.js"} {
+	for _, path := range []string{"/assets/app.css", "/assets/htmx.min.js", "/assets/seller-upload.js"} {
 		mux.Handle("GET "+path, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Cache-Control", "public, max-age=3600")
 			assetHandler.ServeHTTP(w, r)

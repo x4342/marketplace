@@ -120,7 +120,8 @@ templ SellerDraftForm(theme string, form DraftForm) {
 			<p class="alert alert-success" role="status">Draft saved.</p>
 		}
 		@SellerErrors(form.Errors)
-		<form class="seller-panel seller-form" method="post" enctype="multipart/form-data" action={ templ.SafeURL(form.Path()) }>
+		<script src="/assets/seller-upload.js" defer></script>
+		<form id="seller-draft-form" class="seller-panel seller-form" method="post" enctype="multipart/form-data" action={ templ.SafeURL(form.Path()) }>
 			<input type="hidden" name="csrf" value={ form.CSRF }/>
 			<input type="hidden" name="revision" value={ strconv.FormatInt(form.Revision, 10) }/>
 			<fieldset class="card status-card seller-panel">
@@ -161,6 +162,10 @@ templ SellerDraftForm(theme string, form DraftForm) {
 					<label class="seller-check"><input class="checkbox" type="checkbox" name="remove_image" value="1"/> Remove current image</label>
 				}
 			</fieldset>
+			<div id="upload-feedback" hidden>
+				<progress class="progress" id="upload-progress" max="100" aria-label="Listing image upload"></progress>
+				<p id="upload-message" role="status"></p>
+			</div>
 			<div class="seller-actions">
 				<button class="btn btn-primary" name="action" value="save">Save draft</button>
 				<button class="btn" name="action" value="preview">Save and preview</button>
@@ -208,7 +213,7 @@ templ DraftPreviewCard(form DraftForm) {
 
 templ SellerErrors(problems []string) {
 	if len(problems) != 0 {
-		<ul class="alert alert-error seller-errors" role="alert">
+		<ul id="seller-errors" class="alert alert-error seller-errors" role="alert">
 			for _, message := range problems {
 				<li>{ message }</li>
 			}

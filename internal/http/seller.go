@@ -1,9 +1,12 @@
 package web
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
+	"net/url"
 	"strconv"
 
 	"github.com/jackc/pgx/v5"
@@ -119,20 +122,7 @@ func (p sellerPages) save(w http.ResponseWriter, r *http.Request) {
 		}
 		form.ID, form.HasImage, form.Revision = id.String(), row.HasImage, row.Revision
 	}
-	r.Body = http.MaxBytesReader(w, r.Body, seller.MaxUpload+(64<<10))
-	parseErr := r.ParseMultipartForm(seller.MaxUpload + (64 << 10))
-	if r.MultipartForm != nil {
-		defer r.MultipartForm.RemoveAll()
-	}
-	if parseErr != nil && !errors.Is(parseErr, http.ErrNotMultipart) {
-		form.Errors = []string{"The form or image exceeds the upload limit. Use a JPEG or PNG of 3 MB or less."}
-		if form.ID != "" {
-			http.Redirect(w, r, "/sell/drafts/"+form.ID+"?upload=too-large", http.StatusSeeOther)
-			return
-		}
-		p.form(w, r, http.StatusBadRequest, form)
-		return
-	}
+	rawImage, uploadErr := readListingSubmission(w, r)
 	if !validCSRF(r) {
 		p.denied(w, r)
 		return
@@ -140,15 +130,13 @@ func (p sellerPages) save(w http.ResponseWriter, r *http.Request) {
 	form.Fields = seller.FromForm(r.PostForm)
 	form.Errors = form.Fields.SizeErrors()
 	var image []byte
-	file, _, err := r.FormFile("image")
-	if err == nil {
-		defer file.Close()
-		image, err = seller.ReadImage(file)
-		if err != nil {
-			form.Errors = append(form.Errors, err.Error())
+	if uploadErr != nil {
+		form.Errors = append(form.Errors, uploadErr.Error())
+	} else if len(rawImage) > 0 {
+		image, uploadErr = seller.ReadImage(bytes.NewReader(rawImage))
+		if uploadErr != nil {
+			form.Errors = append(form.Errors, uploadErr.Error())
 		}
-	} else if !errors.Is(err, http.ErrMissingFile) && !errors.Is(err, http.ErrNotMultipart) {
-		form.Errors = append(form.Errors, "The image could not be read.")
 	}
 	removeImage := r.PostForm.Get("remove_image") == "1"
 	if removeImage && len(image) > 0 {
@@ -185,6 +173,47 @@ func (p sellerPages) save(w http.ResponseWriter, r *http.Request) {
 		destination += "?saved=1"
 	}
 	http.Redirect(w, r, destination, http.StatusSeeOther)
+}
+
+// Read text fields preceding the upload so errors can redisplay unsaved edits.
+func readListingSubmission(w http.ResponseWriter, r *http.Request) ([]byte, error) {
+	r.Body = http.MaxBytesReader(w, r.Body, seller.MaxUpload+(64<<10))
+	reader, err := r.MultipartReader()
+	if errors.Is(err, http.ErrNotMultipart) {
+		return nil, r.ParseForm()
+	}
+	if err != nil {
+		return nil, errors.New("The listing form could not be read.")
+	}
+	r.PostForm = make(url.Values)
+	var image []byte
+	for {
+		part, err := reader.NextPart()
+		if errors.Is(err, io.EOF) {
+			return image, nil
+		}
+		if err != nil {
+			return nil, errors.New("The form or image exceeded the upload limit.")
+		}
+		name := part.FormName()
+		if name == "image" && part.FileName() != "" {
+			image, err = io.ReadAll(io.LimitReader(part, seller.MaxUpload+1))
+			if err != nil || len(image) > seller.MaxUpload {
+				return nil, errors.New("Upload a JPEG or PNG of 3 MB or less.")
+			}
+			if len(image) == 0 {
+				return nil, errors.New("Choose a nonempty JPEG or PNG.")
+			}
+			continue
+		}
+		value, err := io.ReadAll(io.LimitReader(part, (16<<10)+1))
+		if err != nil || len(value) > 16<<10 {
+			return nil, errors.New("One of the listing fields is too long.")
+		}
+		if name != "" && part.FileName() == "" {
+			r.PostForm.Add(name, string(value))
+		}
+	}
 }
 
 func (p sellerPages) publish(w http.ResponseWriter, r *http.Request) {
@@ -290,9 +319,6 @@ func (p sellerPages) form(w http.ResponseWriter, r *http.Request, status int, fo
 		return
 	}
 	form.Categories, form.CSRF = categories, csrfFor(w, r)
-	if r.URL.Query().Get("upload") == "too-large" {
-		form.Errors = append(form.Errors, "The image exceeded the upload limit. Your prior draft is still saved.")
-	}
 	p.render(w, r, status, templates.SellerDraftForm(theme(r), form))
 }
 

@@ -1,5 +1,6 @@
 """Check the built app against the running local PostgreSQL fixture."""
 
+import base64
 import os
 import secrets
 from urllib.parse import urlsplit
@@ -165,6 +166,36 @@ def verify_seller(browser, base_url):
     context.close()
 
 
+
+def verify_upload_progress(browser, base_url):
+    page = browser.new_page(viewport={"width": 375, "height": 900})
+    page.goto(base_url + "/register")
+    page.get_by_label("Username").fill("upload_" + secrets.token_hex(6))
+    page.get_by_label("New password").fill("isolated upload fixture password")
+    page.get_by_role("button", name="Create account").click()
+    page.goto(base_url + "/sell/new")
+    page.get_by_label("Title").fill("Image upload fixture")
+    file_input = page.locator("input[name=image]")
+    file_input.set_input_files({
+        "name": "oversize.png", "mimeType": "image/png", "buffer": bytes(3 * 1024 * 1024 + 1)
+    })
+    page.get_by_role("button", name="Save draft", exact=True).click()
+    expect(page.locator("#upload-message")).to_contain_text("3 MB or less")
+    expect(page.get_by_label("Title")).to_have_value("Image upload fixture")
+    file_input.set_input_files({
+        "name": "fixture.png", "mimeType": "image/png", "buffer": base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGNMrU1jYGBgYmBgYGBgAAAPiQFMBq9DwQAAAABJRU5ErkJggg==")
+    })
+
+    def verify_before_upload(route):
+        expect(page.locator("#upload-progress")).to_be_visible()
+        route.continue_()
+
+    page.route(base_url + "/sell/new", verify_before_upload)
+    page.get_by_role("button", name="Save draft", exact=True).click()
+    expect(page.locator("img[alt='Current draft image']")).to_be_visible()
+    expect(page.get_by_role("status")).to_contain_text("Draft saved")
+    page.close()
+
 def main():
     base_url = os.environ["MARKETPLACE_SMOKE_URL"]
     with sync_playwright() as playwright:
@@ -178,6 +209,7 @@ def main():
         for width in (375, 1024):
             verify_discovery(browser, base_url, width)
         verify_seller(browser, base_url)
+        verify_upload_progress(browser, base_url)
         browser.close()
 
 
