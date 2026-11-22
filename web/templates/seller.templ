@@ -33,7 +33,7 @@ templ SellerDashboard(theme, csrf string, updated, away bool, drafts []db.Seller
 			<p class="alert alert-success" role="status">Seller settings updated.</p>
 		}
 		<div class="seller-panel">
-			<a class="btn btn-primary" href="/sell/new">New listing</a>
+			<div class="seller-actions"><a class="btn btn-primary" href="/sell/new">New listing</a><a class="btn" href="/sell/insights">Seller insights</a></div>
 			<section class="card status-card seller-panel" aria-label="Vacation mode">
 				if away {
 					<p>Vacation mode is on. Your listings show that you’re away.</p>

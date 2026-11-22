@@ -258,7 +258,12 @@ func (p messagePages) notifications(w http.ResponseWriter, r *http.Request) {
 		p.failure(w, r, err)
 		return
 	}
-	p.render(w, r, http.StatusOK, templates.Notifications(theme(r), rows, orderNotices, page))
+	reviewNotices, err := p.queries.ReviewNotices(r.Context(), db.ReviewNoticesParams{Actor: session.ID, PageOffset: 30 * (page - 1)})
+	if err != nil {
+		p.failure(w, r, err)
+		return
+	}
+	p.render(w, r, http.StatusOK, templates.Notifications(theme(r), rows, orderNotices, reviewNotices, page))
 }
 
 func (p messagePages) notification(w http.ResponseWriter, r *http.Request) {
@@ -303,7 +308,11 @@ func validText(text string, limit int) bool {
 }
 
 func inboxPage(r *http.Request) int32 {
-	page, err := strconv.ParseInt(r.URL.Query().Get("page"), 10, 32)
+	return inboxPageFor(r, "page")
+}
+
+func inboxPageFor(r *http.Request, key string) int32 {
+	page, err := strconv.ParseInt(r.URL.Query().Get(key), 10, 32)
 	if err != nil || page < 1 || page > 1000 {
 		return 1
 	}

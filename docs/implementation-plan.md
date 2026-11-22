@@ -10,7 +10,7 @@ The implementation agent owns engineering and verification. The repository owner
 | M3 Seller lifecycle | M2 | Save Draft at each stage, feedback and validation for upload, preview and publishing, listing ownership, vacation blocks new checkout and preserves existing obligations and snapshots. | Seller lifecycle verified. [PR #8](https://github.com/x4342/marketplace/pull/8) · [Lifecycle CI](https://github.com/x4342/marketplace/actions/runs/45063517152). Final upload progress and recovery passed local Chromium after fixing form endpoint selection. Checkout enforcement for vacation is scheduled in M5. |
 | M4 Messaging | M1–M3 | Nonbuyers can message, participants only, block/report, unread and notification links, no-JS send, purchase events cannot be forged. | Messaging gate verified. [PR #10](https://github.com/x4342/marketplace/pull/10) · [Issue #9](https://github.com/x4342/marketplace/issues/9). Local PostgreSQL and race tests passed. Local Chromium verified mobile no-JS messaging, authenticated HTMX polling, and 320/375/768/1024/1440px layout. Purchase-event payment wiring follows in M5. |
 | M5 Orders | M3–M4 | Immutable snapshot before mock quote, physical and digital fulfillment, protected download, exactly one private purchase event including cases without prior chats. | Complete in simulation. [PR #12](https://github.com/x4342/marketplace/pull/12) · [Passing CI](https://github.com/x4342/marketplace/actions/runs/45068044219) · [Issue #11](https://github.com/x4342/marketplace/issues/11). PostgreSQL verified order-before-quote, replay, stock contention, expiry, authorization, and all fulfillment types. Chromium completed physical and automatic digital purchases without JavaScript. Local worker and five-width layout checks passed. |
-| M6 Reviews | M5 | Eligible buyer, one written 1–5 star review per order, reject unpaid/self/unrelated, derive ratings and insights from legitimate data, protect order details. | Not started |
+| M6 Reviews | M5 | Eligible buyer, one written 1–5 star review per order, reject unpaid/self/unrelated, derive ratings and insights from legitimate data, protect order details. | Implemented and locally verified. [PR #15](https://github.com/x4342/marketplace/pull/15) · [Issue #14](https://github.com/x4342/marketplace/issues/14). Six PostgreSQL suites passed, including eligibility and uniqueness, review privacy, rating thresholds, moderator role boundaries, appeals, and seller totals. Chromium verified review submission and public rendering with JavaScript disabled at five widths. |
 | M7 Ledger | M5–M6 | Balanced append-only entries, replay-safe settlement, no concurrent overspending, payout authorization distinct from mock settlement. | Not started |
 | M8 Administration | M4–M7 | Reports, appeals and disputes, role-scoped queues, audit evidence, denial releases reservation as applicable, no finance-admin shipping access by default. | Not started |
 | M9 Hardening | M0–M8 | Regression suite, restore and reconciliation evidence, accessibility/Tor/no-JS review, threat model and owner readiness report. Public launch and live funds require approval. | Not started |
@@ -118,9 +118,9 @@ Identifiers refer to the V5 blueprint. The engineering owner, prerequisite, revi
 
 ### M6
 
-- [ ] P05 — Not started
-- [ ] O06 — Not started
-- [ ] R06 — Not started
+- [x] P05 — M6 verified in simulation
+- [x] O06 — M6 verified in simulation
+- [x] R06 — M6 verified in simulation
 
 ### M7
 

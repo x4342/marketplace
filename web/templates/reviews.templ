@@ -1,0 +1,251 @@
+package templates
+
+import (
+	"fmt"
+	"strconv"
+
+	"github.com/x4342/marketplace/internal/db"
+	"github.com/x4342/marketplace/internal/reviews"
+)
+
+type ListingReviewData struct {
+	ID       string
+	CSRF     string
+	Rows     []db.ListingReviewsRow
+	Counts   []db.ListingReviewCountsRow
+	Rating   db.SellerRatingRow
+	Page     int32
+	More     bool
+	Reported bool
+}
+
+func (d ListingReviewData) Total() int64 {
+	var total int64
+	for _, bucket := range d.Counts {
+		total += bucket.Total
+	}
+	return total
+}
+
+func (d ListingReviewData) Count(stars int16) int64 {
+	for _, bucket := range d.Counts {
+		if bucket.Stars == stars {
+			return bucket.Total
+		}
+	}
+	return 0
+}
+
+type ReviewCase struct {
+	Review  db.PendingReviewCasesRow
+	Reasons []db.ReviewCaseReasonsRow
+}
+
+templ OrderReview(d OrderData) {
+	<section id="review" class="card status-card seller-panel" aria-label="Order review">
+		<h2>Review</h2>
+		if d.Review.ReviewID.Valid {
+			if d.ReviewSaved {
+				<p class="alert alert-success" role="status">Review submitted.</p>
+			}
+			<a class="seller-link" href={ templ.SafeURL("/reviews/" + d.Review.ReviewID.String()) }>Open your review</a>
+		} else if d.Review.Eligible {
+			<form method="post" action={ templ.SafeURL(d.Path() + "/reviews") } class="seller-form seller-panel">
+				<input type="hidden" name="csrf" value={ d.CSRF }/>
+				<div class="seller-panel">
+					<label for="review-stars">Rating</label>
+					<select class="select" id="review-stars" name="stars" required>
+						<option value="">Choose a rating</option>
+						for _, rating := range []int{5,4,3,2,1} {
+							<option value={ strconv.Itoa(rating) }>{ starText(int16(rating)) }</option>
+						}
+					</select>
+				</div>
+				<div class="seller-panel">
+					<label for="review-body">Written review</label>
+					<textarea class="textarea" id="review-body" name="body" required maxlength="2000" rows="4"></textarea>
+				</div>
+				<p>Your review and the item’s title at purchase will be public. Keep personal and order details out of the text.</p>
+				<button class="btn btn-primary">Submit review</button>
+			</form>
+		}
+	</section>
+}
+
+func starText(stars int16) string {
+	if stars == 1 {
+		return "1 star"
+	}
+	return fmt.Sprintf("%d stars", stars)
+}
+
+templ SellerRating(count int64, average float64) {
+	if count >= reviews.MinimumRatings {
+		<p>{ fmt.Sprintf("%.1f out of 5 · %d verified seller reviews", average, count) }</p>
+	} else if count > 0 {
+		<p>{ fmt.Sprintf("Verified seller reviews: %d · average shown after %d", count, reviews.MinimumRatings) }</p>
+	}
+}
+
+templ ListingReviews(data ListingReviewData) {
+	<section id="reviews" class="seller-panel review-section" aria-labelledby="review-heading">
+		<h2 id="review-heading">Verified purchase reviews</h2>
+		@SellerRating(data.Rating.ReviewCount, data.Rating.Average)
+		if data.Reported {
+			<p class="alert alert-success" role="status">Review report received.</p>
+		}
+		if len(data.Counts) == 0 {
+			<p>No reviews yet for this item.</p>
+		} else {
+			<p>{ fmt.Sprintf("Reviews for this item: %d", data.Total()) }</p>
+			<dl class="review-counts" aria-label="Item rating distribution">
+				for _, stars := range []int16{5,4,3,2,1} {
+					<div><dt>{ starText(stars) }</dt><dd>{ strconv.FormatInt(data.Count(stars),10) }</dd></div>
+				}
+			</dl>
+		}
+		for _, review := range data.Rows {
+			<article class="card status-card seller-panel">
+				<h3>{ starText(review.Stars) }</h3>
+				<p>Verified purchase · { review.Product }</p>
+				<time datetime={ review.CreatedAt.Time.UTC().Format("2006-01-02") }>{ review.CreatedAt.Time.UTC().Format("2 Jan 2006") }</time>
+				if review.Refunded {
+					<p>Order later refunded</p>
+				}
+				<p class="commerce-preserve">{ review.Body }</p>
+				if data.CSRF != "" {
+					@ReviewReasonForm("/reviews/"+review.ID.String()+"/report", data.CSRF, "Report review", "Send report")
+				}
+			</article>
+		}
+		if data.Page > 1 || data.More {
+			<nav class="auth-links" aria-label="Review pages">
+				if data.Page > 1 {
+					<a href={ templ.SafeURL("/listings/" + data.ID + "?review_page=" + strconv.Itoa(int(data.Page-1)) + "#reviews") }>Previous reviews</a>
+				}
+				if data.More && data.Page < 1000 {
+					<a href={ templ.SafeURL("/listings/" + data.ID + "?review_page=" + strconv.Itoa(int(data.Page+1)) + "#reviews") }>More reviews</a>
+				}
+			</nav>
+		}
+	</section>
+}
+
+templ ReviewReasonForm(path, csrf, label, action string) {
+	<details>
+		<summary class="btn">{ label }</summary>
+		<form class="seller-form seller-panel" method="post" action={ templ.SafeURL(path) }>
+			<input type="hidden" name="csrf" value={ csrf }/>
+			<label>Reason <textarea class="textarea" name="reason" maxlength="1000" required rows="3"></textarea></label>
+			<button class="btn">{ action }</button>
+		</form>
+	</details>
+}
+
+templ PrivateReview(theme string, row db.PrivateReviewRow, author bool, csrf string, sent bool) {
+	@AppShell("Review details", theme) {
+		@PageHeader("Review details", row.Title)
+		<section class="card status-card seller-panel" aria-label="Review details">
+			if sent {
+				<p class="alert alert-success" role="status">Appeal submitted.</p>
+			}
+			if row.Hidden {
+				<p>Hidden by moderation</p>
+			} else {
+				<p>Visible on the listing</p>
+			}
+			<p>{ starText(row.Stars) }</p>
+			<p class="commerce-preserve">{ row.Body }</p>
+			if row.DecisionReason != "" {
+				<p class="commerce-preserve">{ "Decision reason: " + row.DecisionReason }</p>
+			}
+			if row.Pending {
+				<p>Appeal awaiting review.</p>
+			} else if row.CanAppeal && author {
+				@ReviewReasonForm("/reviews/"+row.ID.String()+"/appeal", csrf, "Appeal decision", "Submit appeal")
+			}
+		</section>
+	}
+}
+
+templ ReviewQueue(theme string, cases []ReviewCase, csrf string, page int32, more, updated bool) {
+	@AppShell("Review moderation", theme) {
+		@PageHeader("Review moderation", "Decide reports and appeals on verified purchase reviews.")
+		if updated {
+			<p class="alert alert-success" role="status">Moderation decision recorded.</p>
+		}
+		<div class="seller-panel">
+			if len(cases)==0 {
+				<p>No review cases on this page.</p>
+			}
+			for _, current := range cases {
+				<article class="card status-card seller-panel">
+					<h2>{ current.Review.Title }</h2>
+					<p class="commerce-preserve">{ current.Review.Body }</p>
+					<ul>
+						for _, reason := range current.Reasons {
+							<li><strong>{ reason.Kind }</strong><p class="commerce-preserve">{ reason.Reason }</p></li>
+						}
+					</ul>
+					<form class="seller-form seller-panel" method="post" action={ templ.SafeURL("/admin/reviews/" + current.Review.ID.String() + "/decision") }>
+						<input type="hidden" name="csrf" value={ csrf }/>
+						<label>Decision reason <textarea class="textarea" name="reason" maxlength="1000" required rows="3"></textarea></label>
+						if current.Review.Hidden {
+							<div class="seller-actions">
+								<button class="btn" name="action" value="uphold">Keep hidden</button>
+								<button class="btn" name="action" value="restore">Restore review</button>
+							</div>
+						} else {
+							<div class="seller-actions">
+								<button class="btn" name="action" value="dismiss">Dismiss reports</button>
+								<button class="btn" name="action" value="hide">Hide review</button>
+							</div>
+						}
+					</form>
+				</article>
+			}
+		</div>
+		@MessagePages("/admin/reviews", page, more)
+	}
+}
+
+templ SellerInsights(theme string, totals db.SellerActivityRow, gross []db.SellerGrossSalesRow) {
+	@AppShell("Seller insights", theme) {
+		@PageHeader("Seller insights", "Activity across your listings.")
+		<section class="card status-card seller-panel" aria-label="Seller activity">
+			<dl class="review-counts">
+				<div><dt>Listing page views</dt><dd>{ strconv.FormatInt(totals.Views,10) }</dd></div>
+				<div><dt>Orders placed</dt><dd>{ strconv.FormatInt(totals.Orders,10) }</dd></div>
+				<div><dt>Completed orders</dt><dd>{ strconv.FormatInt(totals.Completed,10) }</dd></div>
+			</dl>
+			<p>Views count page loads and exclude your own signed-in visits.</p>
+			<h2>Gross simulated sales</h2>
+			if len(gross)==0 {
+				<p>No completed paid sales yet.</p>
+			}
+			for _, currency := range gross {
+				<p>{ priceLabel(currency.GrossMinor,currency.Currency) }</p>
+			}
+			<p>Completed paid orders, before fees, grouped by accounting currency.</p>
+		</section>
+	}
+}
+
+func reviewNoticeLabel(kind string) string {
+	switch kind {
+	case "hidden":
+		return "Review hidden"
+	case "upheld":
+		return "Review appeal decided"
+	case "restored":
+		return "Review restored"
+	default:
+		return "New verified review"
+	}
+}
+
+templ ReviewNotice(notice db.ReviewNoticesRow) {
+	<article class="card status-card">
+		<a class="seller-link" href={ templ.SafeURL("/reviews/" + notice.ReviewID.String()) }>{ reviewNoticeLabel(notice.Kind)+" · "+notice.Title }</a>
+	</article>
+}
