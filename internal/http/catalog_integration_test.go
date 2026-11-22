@@ -17,6 +17,7 @@ import (
 
 	"github.com/x4342/marketplace/internal/db"
 	"github.com/x4342/marketplace/internal/identity"
+	"github.com/x4342/marketplace/internal/seller"
 )
 
 func TestCatalogPostgres(t *testing.T) {
@@ -30,7 +31,7 @@ func TestCatalogPostgres(t *testing.T) {
 	}
 	defer pool.Close()
 
-	handler, err := New(db.New(pool), identity.New(pool), slog.New(slog.NewTextHandler(io.Discard, nil)))
+	handler, err := New(db.New(pool), identity.New(pool), seller.Service{Pool: pool}, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	if err != nil {
 		t.Fatal(err)
 	}

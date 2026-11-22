@@ -1,0 +1,222 @@
+package templates
+
+import (
+	"strconv"
+
+	"github.com/x4342/marketplace/internal/catalog"
+	"github.com/x4342/marketplace/internal/db"
+	"github.com/x4342/marketplace/internal/seller"
+)
+
+type DraftForm struct {
+	ID         string
+	Revision   int64
+	CSRF       string
+	Saved      bool
+	HasImage   bool
+	Fields     seller.Fields
+	Categories []db.CatalogCategoriesRow
+	Errors     []string
+}
+
+func (f DraftForm) Path() string {
+	if f.ID == "" {
+		return "/sell/new"
+	}
+	return "/sell/drafts/" + f.ID
+}
+
+templ SellerDashboard(theme, csrf string, updated, away bool, drafts []db.SellerDraftsRow, listings []db.SellerListingsRow) {
+	@AppShell("Sell", theme) {
+		@PageHeader("Sell", "Save drafts and manage published listings.")
+		if updated {
+			<p class="alert alert-success" role="status">Seller settings updated.</p>
+		}
+		<div class="seller-panel">
+			<a class="btn btn-primary" href="/sell/new">New listing</a>
+			<section class="card status-card seller-panel" aria-label="Vacation mode">
+				if away {
+					<p>Vacation mode is on. Your listings show that you’re away.</p>
+				} else {
+					<p>Vacation mode is off.</p>
+				}
+				<form method="post" action="/sell/vacation">
+					<input type="hidden" name="csrf" value={ csrf }/>
+					if away {
+						<button class="btn" name="vacation" value="end">End vacation</button>
+					} else {
+						<button class="btn" name="vacation" value="start">Start vacation</button>
+					}
+				</form>
+			</section>
+			<section class="seller-panel" aria-labelledby="draft-heading">
+				<h2 id="draft-heading">Drafts</h2>
+				if len(drafts) == 0 {
+					<p>No drafts yet.</p>
+				}
+				for _, draft := range drafts {
+					<div class="card status-card">
+						<a class="seller-link" href={ templ.SafeURL("/sell/drafts/" + draft.ID.String()) }>
+							if draft.Title == "" {
+								Untitled draft
+							} else {
+								{ draft.Title }
+							}
+						</a>
+					</div>
+				}
+			</section>
+			<section class="seller-panel" aria-labelledby="listing-heading">
+				<h2 id="listing-heading">Listings</h2>
+				if len(listings) == 0 {
+					<p>No listings yet.</p>
+				}
+				for _, listing := range listings {
+					<div class="card status-card seller-panel">
+						<h3>{ listing.Title }</h3>
+						if listing.Status == "published" {
+							<p>Published</p>
+						} else if listing.Status == "paused" {
+							<p>Paused</p>
+						} else {
+							<p>Removed</p>
+						}
+						if listing.Status != "removed" {
+							<div class="seller-actions">
+								<form method="post" action={ templ.SafeURL("/sell/listings/" + listing.ID.String() + "/edit") }>
+									<input type="hidden" name="csrf" value={ csrf }/>
+									<button class="btn">Edit listing</button>
+								</form>
+								<form method="post" action={ templ.SafeURL("/sell/listings/" + listing.ID.String() + "/status") }>
+									<input type="hidden" name="csrf" value={ csrf }/>
+									if listing.Status == "published" {
+										<button class="btn" name="status" value="paused">Pause listing</button>
+									} else {
+										<button class="btn" name="status" value="published">Resume listing</button>
+									}
+								</form>
+								<details>
+									<summary class="btn">Remove listing</summary>
+									<form method="post" action={ templ.SafeURL("/sell/listings/" + listing.ID.String() + "/status") }>
+										<input type="hidden" name="csrf" value={ csrf }/>
+										<p>Remove this listing from discovery permanently?</p>
+										<button class="btn btn-error" name="status" value="removed">Confirm removal</button>
+									</form>
+								</details>
+							</div>
+						}
+					</div>
+				}
+			</section>
+		</div>
+	}
+}
+
+templ SellerDraftForm(theme string, form DraftForm) {
+	@AppShell("Edit listing", theme) {
+		@PageHeader("Edit listing", "Save a private draft at any point and preview it before publishing.")
+		<a class="seller-link" href="/sell">Back to Sell</a>
+		if form.Saved {
+			<p class="alert alert-success" role="status">Draft saved.</p>
+		}
+		@SellerErrors(form.Errors)
+		<script src="/assets/seller-upload.js" defer></script>
+		<form id="seller-draft-form" class="seller-panel seller-form" method="post" enctype="multipart/form-data" action={ templ.SafeURL(form.Path()) }>
+			<input type="hidden" name="csrf" value={ form.CSRF }/>
+			<input type="hidden" name="revision" value={ strconv.FormatInt(form.Revision, 10) }/>
+			<fieldset class="card status-card seller-panel">
+				<legend>Listing details</legend>
+				<label>Title <input class="input" name="title" maxlength="140" value={ form.Fields.Title }/></label>
+				<label>Description <textarea class="textarea" name="description" maxlength="3000" rows="4">{ form.Fields.Description }</textarea></label>
+				<label>
+					Category
+					<select class="select" name="category">
+						<option value="">Choose a category</option>
+						for _, category := range form.Categories {
+							<option value={ category.Slug } selected?={ form.Fields.Category == category.Slug }>{ category.Name }</option>
+						}
+					</select>
+				</label>
+				@Facet("Listing type", "kind", "Choose a type", form.Fields.Kind, catalog.TypeOptions)
+				<label>Price <input class="input" name="price" inputmode="decimal" value={ form.Fields.Price }/></label>
+				@Facet("Currency", "currency", "Choose a currency", form.Fields.Currency, catalog.CurrencyOptions)
+				<label>Stock <input class="input" name="stock" inputmode="numeric" value={ form.Fields.Stock }/></label>
+				<label class="seller-check"><input class="checkbox" type="checkbox" name="orderable" value="1" checked?={ form.Fields.Orderable }/> Available to order when stock is empty</label>
+			</fieldset>
+			<fieldset class="card status-card seller-panel">
+				<legend>Fulfillment</legend>
+				@Facet("Physical condition", "condition", "Choose when selling physical goods", form.Fields.Condition, catalog.ConditionOptions)
+				<div class="seller-actions">
+					<label class="seller-check"><input class="checkbox" type="checkbox" name="region_eu" value="1" checked?={ form.Fields.RegionEU }/> Ships to EU</label>
+					<label class="seller-check"><input class="checkbox" type="checkbox" name="region_us" value="1" checked?={ form.Fields.RegionUS }/> Ships to US</label>
+				</div>
+				@Facet("Digital delivery", "delivery", "Choose when selling digital goods", form.Fields.Delivery, catalog.DeliveryOptions)
+				<label>Fulfillment terms <textarea class="textarea" name="terms" maxlength="3000" rows="3">{ form.Fields.Terms }</textarea></label>
+			</fieldset>
+			<fieldset class="card status-card seller-panel">
+				<legend>Listing image</legend>
+				<label>Image <input class="file-input" type="file" name="image" accept="image/jpeg,image/png" aria-describedby="image-limits"/></label>
+				<p id="image-limits">JPEG or PNG, up to 3 MB and 2048 pixels per side.</p>
+				if form.HasImage {
+					<img class="seller-preview-image" src={ templ.SafeURL(form.Path() + "/image") } alt="Current draft image"/>
+					<label class="seller-check"><input class="checkbox" type="checkbox" name="remove_image" value="1"/> Remove current image</label>
+				}
+			</fieldset>
+			<div id="upload-feedback" hidden>
+				<progress class="progress" id="upload-progress" max="100" aria-label="Listing image upload"></progress>
+				<p id="upload-message" role="status"></p>
+			</div>
+			<div class="seller-actions">
+				<button class="btn btn-primary" name="action" value="save">Save draft</button>
+				<button class="btn" name="action" value="preview">Save and preview</button>
+			</div>
+		</form>
+	}
+}
+
+templ DraftPreview(theme string, form DraftForm) {
+	@AppShell("Listing preview", theme) {
+		@PageHeader("Listing preview", "Review this draft before publishing.")
+		<a class="seller-link" href={ templ.SafeURL(form.Path()) }>Edit draft</a>
+		@SellerErrors(form.Errors)
+		<div class="seller-panel preview-layout">
+			<section aria-label="Desktop preview">
+				<h2>Desktop preview</h2>
+				@DraftPreviewCard(form)
+			</section>
+			<section class="narrow-preview" aria-label="Mobile preview">
+				<h2>Mobile preview</h2>
+				@DraftPreviewCard(form)
+			</section>
+		</div>
+		if len(form.Errors) == 0 {
+			<form class="seller-publish" method="post" action={ templ.SafeURL(form.Path() + "/publish") }>
+				<input type="hidden" name="csrf" value={ form.CSRF }/>
+				<input type="hidden" name="revision" value={ strconv.FormatInt(form.Revision, 10) }/>
+				<button class="btn btn-primary">Publish listing</button>
+			</form>
+		}
+	}
+}
+
+templ DraftPreviewCard(form DraftForm) {
+	<article class="card status-card seller-panel">
+		if form.HasImage {
+			<img class="seller-preview-image" src={ templ.SafeURL(form.Path() + "/image") } alt={ form.Fields.Title }/>
+		}
+		<h3>{ form.Fields.Title }</h3>
+		<p>{ form.Fields.Currency + " " + form.Fields.Price }</p>
+		<p>{ form.Fields.Description }</p>
+		<p>{ form.Fields.Terms }</p>
+	</article>
+}
+
+templ SellerErrors(problems []string) {
+	if len(problems) != 0 {
+		<ul id="seller-errors" class="alert alert-error seller-errors" role="alert">
+			for _, message := range problems {
+				<li>{ message }</li>
+			}
+		</ul>
+	}
+}

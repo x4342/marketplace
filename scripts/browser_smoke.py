@@ -1,6 +1,8 @@
 """Check the built app against the running local PostgreSQL fixture."""
 
+import base64
 import os
+import re
 import secrets
 from urllib.parse import urlsplit
 
@@ -128,6 +130,81 @@ def verify_discovery(browser, base_url, width):
     context.close()
 
 
+
+def verify_seller(browser, base_url):
+    context = browser.new_context(
+        viewport={"width": 375, "height": 900}, java_script_enabled=False
+    )
+    page = context.new_page()
+    page.goto(base_url + "/register")
+    username = "seller_" + secrets.token_hex(6)
+    page.get_by_label("Username").fill(username)
+    page.get_by_label("New password").fill("isolated seller fixture password")
+    page.get_by_role("button", name="Create account").click()
+    page.get_by_role("link", name="Continue to account").click()
+    page.get_by_role("link", name="Sell", exact=True).click()
+    page.get_by_role("link", name="New listing").click()
+    title = "Mobile seller fixture " + username
+    page.get_by_label("Title").fill(title)
+    page.get_by_role("button", name="Save draft", exact=True).click()
+    expect(page.get_by_role("status")).to_contain_text("Draft saved")
+    expect(page.get_by_label("Title")).to_have_value(title)
+    page.get_by_label("Description").fill("Digital fixture description")
+    page.get_by_label("Category").select_option("templates")
+    page.get_by_label("Listing type").select_option("digital")
+    page.get_by_label("Price").fill("12.50")
+    page.get_by_label("Stock", exact=True).fill("2")
+    page.get_by_label("Digital delivery").select_option("manual")
+    page.get_by_label("Fulfillment terms").fill("Manual delivery after purchase")
+    page.get_by_role("button", name="Save and preview").click()
+    expect(page.get_by_role("heading", name="Listing preview", exact=True)).to_be_visible()
+    expect(page.get_by_role("region", name="Mobile preview")).to_contain_text(title)
+    bounds = page.get_by_role("region", name="Mobile preview").bounding_box()
+    assert bounds and bounds["x"] + bounds["width"] <= 375
+    page.screenshot(path="bin/smoke/seller-preview-375.png")
+    page.get_by_role("button", name="Publish listing").click()
+    expect(page.get_by_role("heading", name=title)).to_be_visible()
+    context.close()
+
+
+
+def verify_upload_progress(browser, base_url):
+    page = browser.new_page(viewport={"width": 375, "height": 900})
+    page.goto(base_url + "/register")
+    page.get_by_label("Username").fill("upload_" + secrets.token_hex(6))
+    page.get_by_label("New password").fill("isolated upload fixture password")
+    page.get_by_role("button", name="Create account").click()
+    page.goto(base_url + "/sell/new")
+    page.get_by_label("Title").fill("Image upload fixture")
+    file_input = page.locator("input[name=image]")
+    file_input.set_input_files({
+        "name": "oversize.png", "mimeType": "image/png", "buffer": bytes(3 * 1024 * 1024 + 1)
+    })
+    page.get_by_role("button", name="Save draft", exact=True).click()
+    expect(page.locator("#upload-message")).to_contain_text("3 MB or less")
+    expect(page.get_by_label("Title")).to_have_value("Image upload fixture")
+    file_input.set_input_files({
+        "name": "fixture.png", "mimeType": "image/png", "buffer": base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGNMrU1jYGBgYmBgYGBgAAAPiQFMBq9DwQAAAABJRU5ErkJggg==")
+    })
+
+    page.evaluate("""() => {
+        const progress = document.querySelector('#upload-progress');
+        new MutationObserver(() => {
+            if (!progress.hidden) sessionStorage.setItem('verified-upload-progress', 'yes');
+        }).observe(progress, {attributes: true});
+    }""")
+    with page.expect_response(
+        lambda response: response.url.endswith("/sell/new")
+        and response.request.method == "POST"
+    ) as submitted:
+        page.get_by_role("button", name="Save draft", exact=True).click()
+    assert submitted.value.status == 204, f"Upload returned {submitted.value.status}"
+    expect(page).to_have_url(re.compile(r"/sell/drafts/[0-9a-f-]+\?saved=1$"))
+    assert page.evaluate("sessionStorage.getItem('verified-upload-progress')") == "yes"
+    expect(page.locator("img[alt='Current draft image']")).to_be_visible()
+    expect(page.get_by_role("status")).to_contain_text("Draft saved")
+    page.close()
+
 def main():
     base_url = os.environ["MARKETPLACE_SMOKE_URL"]
     with sync_playwright() as playwright:
@@ -140,6 +217,8 @@ def main():
         verify_identity(browser, base_url)
         for width in (375, 1024):
             verify_discovery(browser, base_url, width)
+        verify_seller(browser, base_url)
+        verify_upload_progress(browser, base_url)
         browser.close()
 
 

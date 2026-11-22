@@ -255,12 +255,20 @@ templ ActiveChips(data DiscoveryData) {
 
 templ ListingCard(listing db.DiscoverListingsRow, csrf, returnURL string) {
 	<article class="card listing-card">
-		<div class="listing-placeholder" aria-hidden="true"></div>
+		if listing.HasImage {
+			<img class="listing-image" src={ templ.SafeURL("/listings/" + listing.ID.String() + "/image") } alt="" loading="lazy"/>
+		} else {
+			<div class="listing-placeholder" aria-hidden="true"></div>
+		}
 		<div class="listing-content">
 			<p>{ listingKind(listing.Kind) + " · " + listing.CategoryName }</p>
 			<h2><a href={ templ.SafeURL("/listings/" + listing.ID.String()) }>{ listing.Title }</a></h2>
 			<p class="listing-price">{ priceLabel(listing.PriceMinor, listing.Currency) }</p>
-			<p>{ available(listing.Stock, listing.CanBackorder) }</p>
+			if listing.SellerAway {
+				<p>Seller away</p>
+			} else {
+				<p>{ available(listing.Stock, listing.CanBackorder) }</p>
+			}
 			<a href={ templ.SafeURL("/stores/" + listing.SellerName) }>{ listing.SellerName }</a>
 			if csrf != "" {
 				@FavoriteForm(listing.ID.String(), listing.Title, csrf, returnURL, listing.Favorite)
@@ -274,8 +282,15 @@ templ ListingDetail(theme string, listing db.PublicListingRow, regions, csrf str
 		<nav class="auth-links" aria-label="Catalog navigation"><a href="/discover">Back to discovery</a></nav>
 		@PageHeader(listing.Title, listingKind(listing.Kind)+" · "+listing.CategoryName)
 		<section class="card status-card listing-detail" aria-label="Listing details">
+			if listing.HasImage {
+				<img class="seller-preview-image" src={ templ.SafeURL("/listings/" + listing.ID.String() + "/image") } alt={ listing.Title }/>
+			}
 			<p class="listing-price">{ priceLabel(listing.PriceMinor, listing.Currency) }</p>
-			<p>{ available(listing.Stock, listing.CanBackorder) }</p>
+			if listing.SellerAway {
+				<p>Seller away</p>
+			} else {
+				<p>{ available(listing.Stock, listing.CanBackorder) }</p>
+			}
 			<p>{ listing.Description }</p>
 			if listing.Kind == "physical" {
 				<p>{ "Condition " + listing.Condition }</p>
