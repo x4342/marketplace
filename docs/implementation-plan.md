@@ -4,7 +4,7 @@ The implementation agent owns engineering and verification. The repository owner
 
 | Milestone | Depends on | Acceptance gate | Status and evidence |
 | --- | --- | --- | --- |
-| M0 Foundation | Empty repo audited | Fresh configure, migrate up/down, generate, build, format, test, and run web/worker. Local assets, persistent theme, keyboard and no-JS shell across 320/375/768/1024/1440px. | Implemented, verification pending. Branch `feature/m0-foundation`. [Issue #1](https://github.com/x4342/marketplace/issues/1) · [PR #2](https://github.com/x4342/marketplace/pull/2). |
+| M0 Foundation | Empty repo audited | Fresh configure, migrate up/down, generate, build, format, test, and run web/worker. Local assets, persistent theme, keyboard and no-JS shell across 320/375/768/1024/1440px. | Implemented and tested. [Green CI](https://github.com/x4342/marketplace/actions/runs/45059542225) covers format, vet, race tests, builds, migration up/down/up, fixture repeat, and Chromium light/dark, no-JS, keyboard and HTMX checks at the five target widths. Branch `feature/m0-foundation`. [Issue #1](https://github.com/x4342/marketplace/issues/1) · [PR #2](https://github.com/x4342/marketplace/pull/2). |
 | M1 Identity | M0 | Username-only registration and login, one-use recovery, server sessions, owner checks, CSRF, separate moderator and finance permissions, negative and expiry tests. | Not started. [Issue #3](https://github.com/x4342/marketplace/issues/3). |
 | M2 Catalog | M1 | Search/filter/storefront/favorite DB flows, mobile one and desktop two columns, visible sort, distinct availability, canonical URL/reset/history, stable paging, no fabricated ratings. | Not started |
 | M3 Seller lifecycle | M2 | Save Draft at each stage, feedback and validation for upload, preview and publishing, listing ownership, vacation blocks new checkout and preserves existing obligations and snapshots. | Not started |
@@ -27,35 +27,35 @@ Identifiers refer to the V5 blueprint. The engineering owner, prerequisite, revi
 - [x] A02 — Implemented
 - [x] A03 — Implemented
 - [x] A04 — Implemented
-- [ ] A05 — In progress
-- [ ] G01 — In progress
-- [ ] G02 — In progress
-- [ ] G03 — In progress
-- [ ] G04 — In progress
-- [ ] G05 — In progress
-- [ ] P03 — In progress
-- [ ] T01 — In progress
-- [ ] T02 — In progress
-- [ ] T03 — In progress
-- [ ] T06 — In progress
+- [x] A05 — M0 scope implemented and verified
+- [x] G01 — M0 scope implemented and verified
+- [x] G02 — M0 scope implemented and verified
+- [x] G03 — M0 scope implemented and verified
+- [x] G04 — Resolved via the owner-authorized README initialization and feature PR
+- [x] G05 — M0 scope implemented and verified
+- [ ] P03 — M0 scope verified. Remaining feature work follows the milestone gates.
+- [x] T01 — M0 scope implemented and verified
+- [x] T02 — M0 scope implemented and verified
+- [x] T03 — M0 scope implemented and verified
+- [x] T06 — M0 scope implemented and verified
 - [x] T07 — Implemented
-- [ ] U01 — In progress
-- [ ] U02 — In progress
-- [ ] U03 — In progress
-- [ ] U04 — In progress
-- [ ] U05 — In progress
-- [ ] U07 — In progress
-- [ ] Q03 — In progress
-- [ ] Q04 — In progress
-- [ ] Q05 — In progress
-- [ ] Q08 — In progress
+- [x] U01 — M0 scope implemented and verified
+- [x] U02 — M0 scope implemented and verified
+- [ ] U03 — M0 scope verified. Remaining feature work follows the milestone gates.
+- [ ] U04 — M0 scope verified. Remaining feature work follows the milestone gates.
+- [ ] U05 — M0 scope verified. Remaining feature work follows the milestone gates.
+- [ ] U07 — M0 scope verified. Remaining feature work follows the milestone gates.
+- [ ] Q03 — M0 scope verified. Remaining feature work follows the milestone gates.
+- [ ] Q04 — M0 scope verified. Remaining feature work follows the milestone gates.
+- [ ] Q05 — M0 scope verified. Remaining feature work follows the milestone gates.
+- [ ] Q08 — M0 scope verified. Remaining feature work follows the milestone gates.
 - [x] PM01 — Implemented
-- [ ] PM02 — In progress
-- [ ] PM03 — In progress
-- [ ] PM04 — In progress
-- [ ] PM05 — In progress
-- [ ] S01 — In progress
-- [ ] S04 — In progress
+- [ ] PM02 — M0 scope verified. Remaining feature work follows the milestone gates.
+- [ ] PM03 — M0 scope verified. Remaining feature work follows the milestone gates.
+- [ ] PM04 — M0 scope verified. Remaining feature work follows the milestone gates.
+- [ ] PM05 — M0 scope verified. Remaining feature work follows the milestone gates.
+- [x] S01 — M0 scope implemented and verified
+- [x] S04 — M0 scope implemented and verified
 
 ### M1
 
