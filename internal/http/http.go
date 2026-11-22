@@ -16,6 +16,7 @@ import (
 	"github.com/x4342/marketplace/internal/db"
 	"github.com/x4342/marketplace/internal/identity"
 	"github.com/x4342/marketplace/internal/orders"
+	"github.com/x4342/marketplace/internal/reviews"
 	"github.com/x4342/marketplace/internal/seller"
 	"github.com/x4342/marketplace/web/static"
 	"github.com/x4342/marketplace/web/templates"
@@ -59,6 +60,7 @@ func routes(heartbeat heartbeatReader, log *slog.Logger, assets fs.FS, accounts 
 		sellerPages{identityPages: pages, queries: queries, service: sales}.mount(mux)
 		messagePages{identityPages: pages, queries: queries, pool: sales.Pool}.mount(mux)
 		orderPages{identityPages: pages, queries: queries, service: orders.Simulation(sales.Pool)}.mount(mux)
+		reviewPages{identityPages: pages, queries: queries, service: reviews.Service{Pool: sales.Pool}}.mount(mux)
 	}
 
 	assetHandler := http.StripPrefix("/assets/", http.FileServerFS(assets))

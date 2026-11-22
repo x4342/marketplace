@@ -3,9 +3,20 @@ SELECT slug, name, coalesce(parent_slug, '')::text AS parent
 FROM categories ORDER BY coalesce(parent_slug, slug), parent_slug NULLS FIRST, name;
 
 -- name: DiscoverListings :many
-WITH candidates AS (
+WITH seller_ratings AS (
+    SELECT seller_id, count(*) AS review_count, avg(stars)::float8 AS rating
+    FROM reviews WHERE NOT hidden GROUP BY seller_id
+), completed_sales AS (
+    SELECT o.listing_id,count(*) AS purchases
+    FROM orders o WHERE o.state='completed'
+      AND EXISTS (SELECT 1 FROM payment_observations p WHERE p.order_id=o.id)
+    GROUP BY o.listing_id
+), candidates AS (
     SELECT l.id, l.title, l.kind, l.price_minor, l.currency, l.stock, l.can_backorder, l.published_at,
            c.name AS category_name, u.username AS seller_name,
+           coalesce(sr.review_count,0)::bigint AS review_count,
+           coalesce(sr.rating,0)::float8 AS seller_rating,
+           coalesce(cs.purchases,0)::bigint AS purchases,
            EXISTS (SELECT 1 FROM listing_images i WHERE i.listing_id = l.id) AS has_image,
            EXISTS (SELECT 1 FROM seller_vacations v WHERE v.seller_id = l.seller_id) AS seller_away,
            EXISTS (SELECT 1 FROM favorites f WHERE f.listing_id = l.id AND f.user_id = sqlc.arg(viewer_id)::uuid) AS favorite,
@@ -19,7 +30,11 @@ WITH candidates AS (
     JOIN categories c ON c.slug = l.category_slug
     JOIN users u ON u.id = l.seller_id
     CROSS JOIN catalog_fx_rate fx
+    LEFT JOIN seller_ratings sr ON sr.seller_id=l.seller_id
+    LEFT JOIN completed_sales cs ON cs.listing_id=l.id
     WHERE l.status = 'published'
+      AND (NOT sqlc.arg(reviewed)::boolean OR EXISTS (SELECT 1 FROM reviews r WHERE r.listing_id=l.id AND NOT r.hidden))
+      AND (sqlc.arg(min_rating)::smallint=0 OR (sr.review_count >= sqlc.arg(rating_sample)::bigint AND sr.rating >= sqlc.arg(min_rating)::smallint))
       AND (NOT sqlc.arg(saved_only)::boolean OR EXISTS (
           SELECT 1 FROM favorites f WHERE f.listing_id = l.id AND f.user_id = sqlc.arg(viewer_id)::uuid
       ))
@@ -34,11 +49,13 @@ WITH candidates AS (
            OR (sqlc.arg(availability)::text = 'in_stock' AND l.stock > 0)
            OR (sqlc.arg(availability)::text = 'orderable' AND l.can_backorder))
 )
-SELECT id, title, kind, price_minor, currency, stock, can_backorder, category_name, seller_name, favorite, has_image, seller_away,
+SELECT id, title, kind, price_minor, currency, stock, can_backorder, category_name, seller_name, favorite, has_image, seller_away, review_count, seller_rating,
        count(*) OVER () AS total_count
 FROM candidates
 WHERE comparable_minor BETWEEN sqlc.arg(minimum)::bigint AND sqlc.arg(maximum)::bigint
 ORDER BY
+    CASE WHEN sqlc.arg(sort_mode)::text = 'popular' AND purchases >= sqlc.arg(rating_sample)::bigint THEN purchases END DESC NULLS LAST,
+    CASE WHEN sqlc.arg(sort_mode)::text = 'rating' AND review_count >= sqlc.arg(rating_sample)::bigint THEN seller_rating END DESC NULLS LAST,
     CASE WHEN sqlc.arg(sort_mode)::text = 'relevance' THEN relevance_score END DESC,
     CASE WHEN sqlc.arg(sort_mode)::text = 'price_asc' THEN comparable_minor END ASC,
     CASE WHEN sqlc.arg(sort_mode)::text = 'price_desc' THEN comparable_minor END DESC,
@@ -59,7 +76,9 @@ JOIN users u ON u.id = l.seller_id
 WHERE l.id = $1 AND l.status = 'published';
 
 -- name: PublicStorefront :one
-SELECT u.username, u.created_at FROM users u
+SELECT u.id,u.username,u.created_at,
+       EXISTS (SELECT 1 FROM seller_vacations v WHERE v.seller_id=u.id) AS away
+FROM users u
 WHERE u.username = $1 AND EXISTS (
     SELECT 1 FROM listings l WHERE l.seller_id = u.id AND l.status = 'published'
 );
@@ -74,3 +93,11 @@ ON CONFLICT (user_id, listing_id) DO NOTHING;
 
 -- name: RemoveFavorite :exec
 DELETE FROM favorites WHERE user_id = $1 AND listing_id = $2;
+
+-- name: CatalogHasPopularListing :one
+SELECT EXISTS (
+    SELECT 1 FROM orders o JOIN listings l ON l.id=o.listing_id
+    WHERE o.state='completed' AND l.status='published'
+    AND EXISTS (SELECT 1 FROM payment_observations p WHERE p.order_id=o.id)
+    GROUP BY o.listing_id HAVING count(*) >= sqlc.arg(minimum)::bigint
+)::boolean;

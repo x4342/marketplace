@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/x4342/marketplace/internal/db"
+	"github.com/x4342/marketplace/internal/reviews"
 )
 
 const PageSize = 12
@@ -29,7 +30,9 @@ var (
 	RegionOptions = []Option{{"EU", "European Union"}, {"US", "United States"}}
 	DeliveryOptions = []Option{{"automatic", "Automatic download"}, {"manual", "Manual delivery"}}
 	CurrencyOptions = []Option{{"USD", "USD"}, {"EUR", "EUR"}}
-	SortOptions = []Option{{"newest", "Newest"}, {"price_asc", "Price low to high"}, {"price_desc", "Price high to low"}}
+	RatingOptions = []Option{{"3","3 stars and up"},{"4","4 stars and up"},{"5","5 stars"}}
+	ReviewOptions = []Option{{"1","Has verified reviews"}}
+	SortOptions = []Option{{"newest", "Newest"},{"rating","Seller rating"},{"popular","Popular"}, {"price_asc", "Price low to high"}, {"price_desc", "Price high to low"}}
 )
 
 type Filters struct {
@@ -48,6 +51,11 @@ func Parse(values url.Values, categories []db.CatalogCategoriesRow) Filters {
 	}
 	f.set("q", keyword)
 	f.Query.Keyword = keyword
+	f.Query.RatingSample = reviews.MinimumRatings
+	rating := f.option(values,"rating","seller rating","",RatingOptions)
+	number,_:=strconv.ParseInt(rating,10,16)
+	f.Query.MinRating=int16(number)
+	f.Query.Reviewed=f.option(values,"reviewed","review presence","",ReviewOptions)=="1"
 	if values.Get("saved") == "1" {
 		f.set("saved", "1")
 		f.Query.SavedOnly = true

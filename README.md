@@ -104,3 +104,17 @@ MARKETPLACE_ORDERS_TEST_DATABASE_URL="$DATABASE_URL" go test -race ./internal/ht
 ```
 
 Migration 00006 rolls back an empty order schema. Once order history exists, use a backup restore or a forward migration. Seller stock edits represent units currently available for new orders. Use a disposable database for this suite. It leaves its synthetic order records intact to respect the database’s append-only snapshots and events.
+
+## Verified reviews and seller insights
+
+Once a buyer confirms receipt on a paid order, they can submit one written review with a 1–5 star rating from the order page. Public reviews show the item title at purchase, star count, date and verified purchase status. Review author accounts and private order details are excluded from the public view. Seller averages and rating thresholds use at least three visible verified reviews. Listing and seller summaries exclude hidden reviews. A later refund adds a label to an existing public review.
+
+Signed-in users can report a visible review. Content moderators decide review reports at **Account → Review moderation**, record a reason, and can uphold or reverse a hidden review when its author appeals. Notifications lead to the participant-only review page. The moderation queue covers review cases. Wider content moderation belongs to M8.
+
+**Sell → Seller insights** shows the account’s aggregate listing page loads, orders, completed orders and gross simulated sales by original currency. Page loads are approximate, with no visitor identifiers stored. Gross sales exclude refunds and use completed verified orders before fees.
+
+```sh
+MARKETPLACE_REVIEWS_TEST_DATABASE_URL="$DATABASE_URL" go test -race ./internal/http -run TestReviewsPostgres -v
+```
+
+Use a disposable, migrated and seeded database. Migration 00007 refuses rollback once verified review history exists.

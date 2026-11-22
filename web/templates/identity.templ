@@ -77,6 +77,7 @@ templ Account(theme, username, csrf string, moderator, finance bool) {
 			<a class="btn" href="/discover?saved=1">Saved listings</a>
 			if moderator {
 				<a class="btn" href="/admin/moderation">Moderation access</a>
+				<a class="btn" href="/admin/reviews">Review moderation</a>
 			}
 			if finance {
 				<a class="btn" href="/admin/finance">Finance access</a>

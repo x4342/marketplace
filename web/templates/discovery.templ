@@ -11,16 +11,24 @@ import (
 )
 
 type DiscoveryData struct {
+	HasPopular bool
 	Filters    catalog.Filters
 	Categories []db.CatalogCategoriesRow
 	Listings   []db.DiscoverListingsRow
-	Storefront string
+	Storefront StorefrontData
 	CSRF       string
 	ReturnURL  string
 	RateDate   string
 	Total      int64
 	Previous   string
 	Next       string
+}
+
+type StorefrontData struct {
+	Name        string
+	MemberSince string
+	Away        bool
+	Rating      db.SellerRatingRow
 }
 
 type Chip struct {
@@ -36,15 +44,15 @@ func (d DiscoveryData) ResetURL() string {
 	if query := d.Filters.Query.Keyword; query != "" {
 		params.Set("q", query)
 	}
-	if d.Storefront != "" {
-		params.Set("seller", d.Storefront)
+	if d.Storefront.Name != "" {
+		params.Set("seller", d.Storefront.Name)
 	}
 	return catalog.DiscoverURL(params)
 }
 
 func (d DiscoveryData) Chips() []Chip {
-	labels := map[string]string{"type": "Type", "category": "Category", "seller": "Seller", "condition": "Condition", "region": "Ships to", "delivery": "Delivery", "availability": "Availability", "min": "Minimum price", "max": "Maximum price"}
-	keys := []string{"type", "category", "seller", "condition", "region", "delivery", "availability", "min", "max"}
+	labels := map[string]string{"type": "Type", "category": "Category", "seller": "Seller", "condition": "Condition", "region": "Ships to", "delivery": "Delivery", "availability": "Availability", "rating": "Seller rating", "reviewed": "Review presence", "min": "Minimum price", "max": "Maximum price"}
+	keys := []string{"type", "category", "seller", "condition", "region", "delivery", "availability", "rating", "reviewed", "min", "max"}
 	var chips []Chip
 	for _, key := range keys {
 		value := d.Filters.Values.Get(key)
@@ -58,7 +66,7 @@ func (d DiscoveryData) Chips() []Chip {
 
 func (d DiscoveryData) FacetLabel(key, value string) string {
 	options := map[string][]catalog.Option{
-		"type": catalog.TypeOptions, "condition": catalog.ConditionOptions, "region": catalog.RegionOptions,
+		"rating": catalog.RatingOptions, "reviewed": catalog.ReviewOptions, "type": catalog.TypeOptions, "condition": catalog.ConditionOptions, "region": catalog.RegionOptions,
 		"delivery": catalog.DeliveryOptions, "availability": catalog.AvailabilityOptions,
 	}
 	if index := slices.IndexFunc(options[key], func(option catalog.Option) bool { return option.Value == value }); index >= 0 {
@@ -98,8 +106,12 @@ templ Discover(theme string, data DiscoveryData) {
 		<div class="discovery">
 			if data.Filters.Query.SavedOnly {
 				@PageHeader("Saved listings", "Browse listings you saved.")
-			} else if data.Storefront != "" {
-				@PageHeader(data.Storefront, "Published listings")
+			} else if data.Storefront.Name != "" {
+				@PageHeader(data.Storefront.Name, "Member since "+data.Storefront.MemberSince)
+				@SellerRating(data.Storefront.Rating.ReviewCount, data.Storefront.Rating.Average)
+				if data.Storefront.Away {
+					<p>Seller away</p>
+				}
 			} else {
 				@PageHeader("Discover", "Browse physical and digital goods.")
 			}
@@ -134,8 +146,14 @@ templ Discover(theme string, data DiscoveryData) {
 					<p class="fx-note">{ "Cross-currency comparisons use a simulated rate dated " + data.RateDate + "." }</p>
 					if len(data.Listings) == 0 {
 						<section class="card status-card">
-							<h2>No listings found</h2>
-							<p>Change the search or clear the filters to see more items.</p>
+							if data.Filters.Query.SavedOnly && len(data.Chips()) == 0 && data.Filters.Query.Keyword == "" {
+								<h2>No saved listings</h2>
+								<p>Use Save listing on a result to keep it here.</p>
+								<a class="seller-link" href="/discover">Browse discovery</a>
+							} else {
+								<h2>No listings found</h2>
+								<p>Change the search or clear the filters to see more items.</p>
+							}
 							<a class="btn" href={ templ.SafeURL(data.ResetURL()) }>Reset all</a>
 						</section>
 					} else {
@@ -183,6 +201,8 @@ templ Filters(data DiscoveryData) {
 		</label>
 		@Facet("Listing type", "type", "All types", data.Filters.Query.Kind, catalog.TypeOptions)
 		@Facet("Availability", "availability", "Any availability", data.Filters.Query.Availability, catalog.AvailabilityOptions)
+		@Facet("Seller rating", "rating", "Any rating", data.Filters.Values.Get("rating"), catalog.RatingOptions)
+		@Facet("Verified reviews", "reviewed", "Any review activity", data.Filters.Values.Get("reviewed"), catalog.ReviewOptions)
 		@Facet("Compare price in", "currency", "", data.Filters.Query.DisplayCurrency, catalog.CurrencyOptions)
 		<label>Minimum price <input class="input" name="min" inputmode="decimal" value={ data.Filters.Values.Get("min") }/></label>
 		<label>Maximum price <input class="input" name="max" inputmode="decimal" value={ data.Filters.Values.Get("max") }/></label>
@@ -232,7 +252,9 @@ templ SortSelect(data DiscoveryData) {
 					<option value="relevance" selected?={ data.Filters.Query.SortMode == "relevance" }>Relevance</option>
 				}
 				for _, option := range catalog.SortOptions {
-					<option value={ option.Value } selected?={ data.Filters.Query.SortMode == option.Value }>{ option.Label }</option>
+					if option.Value != "popular" || data.HasPopular {
+						<option value={ option.Value } selected?={ data.Filters.Query.SortMode == option.Value }>{ option.Label }</option>
+					}
 				}
 			</select>
 		</label>
@@ -270,6 +292,7 @@ templ ListingCard(listing db.DiscoverListingsRow, csrf, returnURL string) {
 				<p>{ available(listing.Stock, listing.CanBackorder) }</p>
 			}
 			<a href={ templ.SafeURL("/stores/" + listing.SellerName) }>{ listing.SellerName }</a>
+			@SellerRating(listing.ReviewCount, listing.SellerRating)
 			if csrf != "" {
 				@FavoriteForm(listing.ID.String(), listing.Title, csrf, returnURL, listing.Favorite)
 			}
@@ -277,7 +300,7 @@ templ ListingCard(listing db.DiscoverListingsRow, csrf, returnURL string) {
 	</article>
 }
 
-templ ListingDetail(theme string, listing db.PublicListingRow, regions, csrf string, favorite, canContact bool) {
+templ ListingDetail(theme string, listing db.PublicListingRow, regions, csrf string, favorite, canContact bool, reviewData ListingReviewData) {
 	@AppShell(listing.Title, theme) {
 		<nav class="auth-links" aria-label="Catalog navigation"><a href="/discover">Back to discovery</a></nav>
 		@PageHeader(listing.Title, listingKind(listing.Kind)+" · "+listing.CategoryName)
@@ -321,6 +344,7 @@ templ ListingDetail(theme string, listing db.PublicListingRow, regions, csrf str
 				<a href="/login">Sign in to save this listing</a>
 			}
 		</section>
+		@ListingReviews(reviewData)
 	}
 }
 

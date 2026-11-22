@@ -149,6 +149,15 @@ func (p orderPages) detail(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	if data.Buyer {
+		data.Review, err = p.queries.BuyerReviewStatus(r.Context(), db.BuyerReviewStatusParams{Actor: session.ID, OrderID: id})
+		if err != nil {
+			p.failure(w, r, err)
+			return
+		}
+		data.ReviewSaved = r.URL.Query().Get("review") == "saved"
+	}
+
 	p.render(w, r, http.StatusOK, templates.OrderPage(theme(r), data))
 }
 

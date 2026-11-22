@@ -12,6 +12,7 @@ import (
 	"github.com/x4342/marketplace/internal/catalog"
 	"github.com/x4342/marketplace/internal/db"
 	"github.com/x4342/marketplace/internal/identity"
+	"github.com/x4342/marketplace/internal/reviews"
 	"github.com/x4342/marketplace/web/templates"
 )
 
@@ -30,7 +31,7 @@ func (a app) mountCatalog(mux *http.ServeMux, queries *db.Queries, accounts *ide
 }
 
 func (p catalogPages) discover(w http.ResponseWriter, r *http.Request) {
-	p.renderCatalog(w, r, r.URL.Query(), "")
+	p.renderCatalog(w, r, r.URL.Query(), templates.StorefrontData{})
 }
 
 func (p catalogPages) storefront(w http.ResponseWriter, r *http.Request) {
@@ -41,16 +42,32 @@ func (p catalogPages) storefront(w http.ResponseWriter, r *http.Request) {
 	}
 	params := r.URL.Query()
 	params.Set("seller", store.Username)
-	p.renderCatalog(w, r, params, store.Username)
+	rating, err := p.queries.SellerRating(r.Context(), store.ID)
+	if err != nil {
+		p.catalogError(w, r, err)
+		return
+	}
+	p.renderCatalog(w, r, params, templates.StorefrontData{Name: store.Username, MemberSince: store.CreatedAt.Time.Format("January 2006"), Away: store.Away, Rating: rating})
 }
 
-func (p catalogPages) renderCatalog(w http.ResponseWriter, r *http.Request, values url.Values, storefront string) {
+func (p catalogPages) renderCatalog(w http.ResponseWriter, r *http.Request, values url.Values, storefront templates.StorefrontData) {
 	categories, err := p.queries.CatalogCategories(r.Context())
 	if err != nil {
 		p.catalogError(w, r, err)
 		return
 	}
 	filters := catalog.Parse(values, categories)
+	popular, err := p.queries.CatalogHasPopularListing(r.Context(), reviews.MinimumRatings)
+	if err != nil {
+		p.catalogError(w, r, err)
+		return
+	}
+	if !popular && filters.Query.SortMode == "popular" {
+		values.Del("sort")
+		filters = catalog.Parse(values, categories)
+		filters.Problems = append(filters.Problems, "Popularity sorting becomes available after verified completed sales.")
+	}
+
 	session, err := p.accounts.Active(r.Context(), cookieValue(r, sessionCookie))
 	if err != nil && !errors.Is(err, identity.ErrInvalid) {
 		p.catalogError(w, r, err)
@@ -74,7 +91,7 @@ func (p catalogPages) renderCatalog(w http.ResponseWriter, r *http.Request, valu
 		p.catalogError(w, r, err)
 		return
 	}
-	results := templates.DiscoveryData{Filters: filters, Categories: categories, Listings: rows, Storefront: storefront, CSRF: csrf, ReturnURL: filters.Link(filters.Page), RateDate: rate.RateDate.Time.Format("2 January 2006")}
+	results := templates.DiscoveryData{Filters: filters, Categories: categories, Listings: rows, Storefront: storefront, HasPopular: popular, CSRF: csrf, ReturnURL: filters.Link(filters.Page), RateDate: rate.RateDate.Time.Format("2 January 2006")}
 	if len(rows) > 0 {
 		results.Total = rows[0].TotalCount
 	}
@@ -109,7 +126,33 @@ func (p catalogPages) listing(w http.ResponseWriter, r *http.Request) {
 		p.catalogError(w, r, err)
 		return
 	}
-	p.render(w, r, http.StatusOK, templates.ListingDetail(theme(r), listing, strings.Join(listing.ShipRegions, ", "), csrf, favorite, session.ID.Valid && session.ID != listing.SellerID))
+	page := inboxPageFor(r, "review_page")
+	rows, err := p.queries.ListingReviews(r.Context(), db.ListingReviewsParams{ListingID: id, PageOffset: 20 * (page - 1)})
+	if err != nil {
+		p.catalogError(w, r, err)
+		return
+	}
+	counts, err := p.queries.ListingReviewCounts(r.Context(), id)
+	if err != nil {
+		p.catalogError(w, r, err)
+		return
+	}
+	rating, err := p.queries.SellerRating(r.Context(), listing.SellerID)
+	if err != nil {
+		p.catalogError(w, r, err)
+		return
+	}
+	if r.Method == http.MethodGet && page == 1 {
+		if err := p.queries.RecordListingView(r.Context(), db.RecordListingViewParams{ListingID: id, Viewer: session.ID}); err != nil {
+			p.log.Warn("listing view aggregate update failed")
+		}
+	}
+	more := len(rows) > 20
+	if more {
+		rows = rows[:20]
+	}
+	data := templates.ListingReviewData{ID: id.String(), CSRF: csrf, Rows: rows, Counts: counts, Rating: rating, Page: page, More: more, Reported: r.URL.Query().Get("report") == "sent"}
+	p.render(w, r, http.StatusOK, templates.ListingDetail(theme(r), listing, strings.Join(listing.ShipRegions, ", "), csrf, favorite, session.ID.Valid && session.ID != listing.SellerID, data))
 }
 
 func (p catalogPages) image(w http.ResponseWriter, r *http.Request) {

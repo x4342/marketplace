@@ -492,3 +492,19 @@ body {
 .commerce-preserve {
   white-space: pre-wrap;
 }
+
+.review-section {
+  margin-block-start: 1rem;
+}
+
+.review-counts {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.review-counts > div {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+}

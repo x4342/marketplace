@@ -9,6 +9,8 @@ import (
 )
 
 type OrderData struct {
+	Review         db.BuyerReviewStatusRow
+	ReviewSaved    bool
 	Order          db.ParticipantOrderRow
 	Quote          db.Quote
 	Buyer          bool
@@ -192,6 +194,9 @@ templ OrderPage(theme string, d OrderData) {
 			}
 			if d.Buyer && (d.Order.State == "fulfilled" || d.Order.State == "fulfillment_pending" || d.Order.State == "fulfillment_failed") {
 				@OrderAction(d, "problem", "Report a fulfillment problem")
+			}
+			if d.Review.Eligible || d.Review.ReviewID.Valid {
+				@OrderReview(d)
 			}
 			<section id="timeline" class="card status-card seller-panel" aria-label="Order timeline">
 				<h2>Order timeline</h2>
