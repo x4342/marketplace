@@ -29,8 +29,8 @@ func Load() (Config, error) {
 		return Config{}, errors.New("HTTP_ADDR must be a loopback IP and port")
 	}
 	ip, err := netip.ParseAddr(host)
-	if err != nil || !ip.IsLoopback() {
-		return Config{}, errors.New("HTTP_ADDR must be a loopback IP and port")
+	if err == nil && (ip.IsLoopback() || (host == "0.0.0.0" && os.Getenv("MARKETPLACE_CONTAINER_BRIDGE") == "1")) {
+		return cfg, nil
 	}
-	return cfg, nil
+	return Config{}, errors.New("HTTP_ADDR must be a loopback IP and port, or 0.0.0.0 with MARKETPLACE_CONTAINER_BRIDGE=1")
 }
