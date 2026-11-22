@@ -1,0 +1,172 @@
+@import "tailwindcss" source(none);
+@source "../templates";
+@plugin "daisyui" {
+  themes: light --default, dark --prefersdark;
+  exclude: rootscrollgutter;
+}
+
+:root {
+  --radius-field: 0.5rem;
+  --radius-box: 0.75rem;
+}
+
+body {
+  min-height: 100dvh;
+  background: var(--color-base-200);
+  color: var(--color-base-content);
+  font-size: 1rem;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-base-content);
+  outline-offset: 3px;
+}
+
+.skip-link {
+  position: fixed;
+  z-index: 2;
+  margin: 0.5rem;
+  transform: translateY(-150%);
+}
+
+.skip-link:focus {
+  transform: translateY(0);
+}
+
+.topbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid var(--color-base-300);
+  background: var(--color-base-100);
+}
+
+.brand a, .nav-link {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  font-weight: 700;
+}
+
+.brand a:hover, .nav-link:hover {
+  text-decoration: underline;
+}
+
+.theme-picker {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.btn {
+  min-height: 44px;
+}
+
+.theme-picker .btn {
+  min-width: 44px;
+}
+
+.theme-picker [aria-pressed="true"] {
+  background: var(--color-primary);
+  color: var(--color-primary-content);
+}
+
+.app-layout {
+  display: grid;
+  min-width: 0;
+}
+
+.sidebar {
+  display: none;
+}
+
+.app-main {
+  min-width: 0;
+  width: 100%;
+  max-width: 56rem;
+  padding: 1.5rem 1rem max(1.5rem, env(safe-area-inset-bottom));
+}
+
+.page-header {
+  margin-bottom: 1.5rem;
+}
+
+.page-header h1 {
+  font-size: clamp(1.75rem, 4vw, 2.25rem);
+  font-weight: 750;
+  letter-spacing: -0.025em;
+}
+
+.page-header p, .status-help {
+  margin-top: 0.5rem;
+}
+
+.status-card {
+  border: 1px solid var(--color-base-300);
+  background: var(--color-base-100);
+  padding: 1rem;
+}
+
+.status-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.status-header h2 {
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.status-list > div {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.25rem 1rem;
+  padding: 0.75rem 0;
+  border-top: 1px solid var(--color-base-300);
+}
+
+.status-list dt {
+  font-weight: 600;
+}
+
+@media (min-width: 768px) {
+  .topbar, .app-main {
+    padding-inline: 2rem;
+  }
+
+  .app-main {
+    padding-block: 2rem;
+  }
+
+  .status-card {
+    padding-inline: 1.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .app-layout {
+    grid-template-columns: 14rem minmax(0, 1fr);
+    min-height: calc(100dvh - 61px);
+  }
+
+  .sidebar {
+    display: block;
+    padding: 1rem 2rem;
+    border-right: 1px solid var(--color-base-300);
+    background: var(--color-base-100);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "name": "private-marketplace",
+  "private": true,
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "build": "tailwindcss -i web/static/input.css -o web/static/dist/app.css --minify && node scripts/copy-assets.mjs"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "4.1.13",
+    "daisyui": "5.1.10",
+    "htmx.org": "2.0.7",
+    "tailwindcss": "4.1.13"
+  }
+}
