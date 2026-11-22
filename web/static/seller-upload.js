@@ -21,7 +21,7 @@ if (draftForm && typeof XMLHttpRequest === 'function') {
     const data = new FormData(draftForm);
     if (event.submitter) data.set(event.submitter.name, event.submitter.value);
     const request = new XMLHttpRequest();
-    request.open('POST', draftForm.action);
+    request.open('POST', draftForm.getAttribute('action'));
     request.setRequestHeader('X-Draft-Upload', '1');
     request.timeout = 20000;
     progress.hidden = false;
