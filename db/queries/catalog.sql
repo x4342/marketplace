@@ -6,6 +6,7 @@ FROM categories ORDER BY coalesce(parent_slug, slug), parent_slug NULLS FIRST, n
 WITH candidates AS (
     SELECT l.id, l.title, l.kind, l.price_minor, l.currency, l.stock, l.can_backorder, l.published_at,
            c.name AS category_name, u.username AS seller_name,
+           EXISTS (SELECT 1 FROM favorites f WHERE f.listing_id = l.id AND f.user_id = sqlc.arg(viewer_id)::uuid) AS favorite,
            CASE
                WHEN l.currency = sqlc.arg(display_currency) THEN l.price_minor
                WHEN l.currency = 'EUR' THEN (l.price_minor * fx.usd_per_eur_ppm + 500000) / 1000000
@@ -31,7 +32,7 @@ WITH candidates AS (
            OR (sqlc.arg(availability)::text = 'in_stock' AND l.stock > 0)
            OR (sqlc.arg(availability)::text = 'orderable' AND l.can_backorder))
 )
-SELECT id, title, kind, price_minor, currency, stock, can_backorder, category_name, seller_name,
+SELECT id, title, kind, price_minor, currency, stock, can_backorder, category_name, seller_name, favorite,
        count(*) OVER () AS total_count
 FROM candidates
 WHERE comparable_minor BETWEEN sqlc.arg(minimum)::bigint AND sqlc.arg(maximum)::bigint

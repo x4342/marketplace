@@ -80,6 +80,11 @@ def verify_identity(browser, base_url):
     page.get_by_label("Password").fill(password)
     page.get_by_role("button", name="Sign in").click()
     expect(page.get_by_text("Signed in as " + username)).to_be_visible()
+    page.goto(base_url + "/discover?q=keyboard")
+    save = page.get_by_role("button", name="Save Compact mechanical keyboard")
+    save.click()
+    expect(page).to_have_url(base_url + "/discover?q=keyboard")
+    expect(page.get_by_role("button", name="Remove Compact mechanical keyboard from saved listings")).to_be_visible()
     context.close()
 
 
@@ -97,7 +102,19 @@ def verify_discovery(browser, base_url, width):
     assert count == (1 if width < 768 else 2)
     page.screenshot(path=f"bin/smoke/discovery-{width}.png")
     if width < 1024:
-        page.locator(".filter-drawer summary").click()
+        summary = page.locator(".filter-drawer summary")
+        summary.focus()
+        page.keyboard.press("Enter")
+        expect(summary).to_be_focused()
+        expect(summary).to_contain_text("Close filters")
+        expect(page.get_by_label("Sort by")).to_be_hidden()
+        page.keyboard.press("Tab")
+        expect(page.locator(".filter-drawer input[type=search]")).to_be_focused()
+        page.keyboard.press("Shift+Tab")
+        page.keyboard.press("Enter")
+        expect(summary).to_be_focused()
+        expect(page.get_by_label("Sort by")).to_be_visible()
+        page.keyboard.press("Enter")
         filters = page.locator(".filter-drawer")
     else:
         filters = page.locator(".discovery-rail")

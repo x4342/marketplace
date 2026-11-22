@@ -253,8 +253,24 @@ body {
   margin-bottom: 1rem;
 }
 
-.filter-drawer[open] summary::after {
-  content: " · Close";
+.filter-close-label, .filter-drawer[open] .filter-open-label {
+  display: none;
+}
+
+.filter-drawer[open] .filter-close-label {
+  display: inline;
+}
+
+@media (max-width: 1023px) {
+  body:has(.filter-drawer[open]) {
+    overflow: hidden;
+  }
+
+  body:has(.filter-drawer[open]) :is(.topbar, .skip-link),
+  .discovery:has(.filter-drawer[open]) > .page-header,
+  .filter-drawer[open] ~ * {
+    visibility: hidden;
+  }
 }
 
 .filter-form {

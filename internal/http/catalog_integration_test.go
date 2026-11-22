@@ -105,8 +105,18 @@ func TestCatalogPostgres(t *testing.T) {
 		}
 		path := "/listings/892351c3-15c9-468e-a61f-b948658c18e5/favorite"
 		one.call("POST", path, url.Values{"favorite": {"save"}}, 403)
-		one.post(path, url.Values{"favorite": {"save"}}, 303)
-		one.post(path, url.Values{"favorite": {"save"}}, 303)
+		card := one.call("GET", "/discover?q=keyboard", nil, 200).Body.String()
+		if !strings.Contains(card, "Save Compact mechanical keyboard") || !strings.Contains(card, "/discover?q=keyboard") {
+			t.Fatal("signed-in discovery results lack the save control")
+		}
+		response := one.post(path, url.Values{"favorite": {"save"}, "return": {"/discover?q=keyboard"}}, 303)
+		if response.Header().Get("Location") != "/discover?q=keyboard" {
+			t.Fatal("saving a card lost its discovery filters")
+		}
+		response = one.post(path, url.Values{"favorite": {"save"}, "return": {"//outside.invalid/discover"}}, 303)
+		if response.Header().Get("Location") != strings.TrimSuffix(path, "/favorite") {
+			t.Fatal("favorite action accepted an external redirect")
+		}
 		two.post(path, url.Values{"favorite": {"remove"}}, 303)
 		if body := one.call("GET", "/discover?saved=1", nil, 200).Body.String(); !strings.Contains(body, "Compact mechanical keyboard") {
 			t.Fatal("favorite did not persist for its owner")

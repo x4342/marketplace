@@ -50,12 +50,18 @@ func (p catalogPages) renderCatalog(w http.ResponseWriter, r *http.Request, valu
 		return
 	}
 	filters := catalog.Parse(values, categories)
-	if filters.Query.SavedOnly {
-		session, ok := p.requireSession(w, r)
-		if !ok {
-			return
-		}
+	session, err := p.accounts.Active(r.Context(), cookieValue(r, sessionCookie))
+	if err != nil && !errors.Is(err, identity.ErrInvalid) {
+		p.catalogError(w, r, err)
+		return
+	}
+	var csrf string
+	if err == nil {
 		filters.Query.ViewerID = session.ID
+		csrf = csrfFor(w, r)
+	} else if filters.Query.SavedOnly {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
 	}
 	rows, err := p.queries.DiscoverListings(r.Context(), filters.Query)
 	if err != nil {
@@ -67,7 +73,7 @@ func (p catalogPages) renderCatalog(w http.ResponseWriter, r *http.Request, valu
 		p.catalogError(w, r, err)
 		return
 	}
-	results := templates.DiscoveryData{Filters: filters, Categories: categories, Listings: rows, Storefront: storefront, RateDate: rate.RateDate.Time.Format("2 January 2006")}
+	results := templates.DiscoveryData{Filters: filters, Categories: categories, Listings: rows, Storefront: storefront, CSRF: csrf, ReturnURL: filters.Link(filters.Page), RateDate: rate.RateDate.Time.Format("2 January 2006")}
 	if len(rows) > 0 {
 		results.Total = rows[0].TotalCount
 	}
@@ -137,7 +143,15 @@ func (p catalogPages) favorite(w http.ResponseWriter, r *http.Request) {
 		p.catalogError(w, r, err)
 		return
 	}
-	http.Redirect(w, r, "/listings/"+id.String(), http.StatusSeeOther)
+	destination := "/listings/" + id.String()
+	if next, err := url.ParseRequestURI(r.PostForm.Get("return")); err == nil &&
+		next.Scheme == "" && next.Host == "" && next.Path == "/discover" {
+		destination = "/discover"
+		if query := next.Query().Encode(); query != "" {
+			destination += "?" + query
+		}
+	}
+	http.Redirect(w, r, destination, http.StatusSeeOther)
 }
 
 func (p catalogPages) catalogError(w http.ResponseWriter, r *http.Request, err error) {

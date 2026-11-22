@@ -15,6 +15,8 @@ type DiscoveryData struct {
 	Categories []db.CatalogCategoriesRow
 	Listings   []db.DiscoverListingsRow
 	Storefront string
+	CSRF       string
+	ReturnURL  string
 	RateDate   string
 	Total      int64
 	Previous   string
@@ -109,7 +111,8 @@ templ Discover(theme string, data DiscoveryData) {
 				<section aria-label="Listing results">
 					<details class="filter-drawer">
 						<summary class="btn">
-							Filters
+							<span class="filter-open-label">Filters</span>
+							<span class="filter-close-label">Close filters</span>
 							if count := len(data.Chips()); count > 0 {
 								{ "(" + strconv.Itoa(count) + ")" }
 							}
@@ -138,7 +141,7 @@ templ Discover(theme string, data DiscoveryData) {
 					} else {
 						<div class="listing-grid">
 							for _, listing := range data.Listings {
-								@ListingCard(listing)
+								@ListingCard(listing, data.CSRF, data.ReturnURL)
 							}
 						</div>
 					}
@@ -250,7 +253,7 @@ templ ActiveChips(data DiscoveryData) {
 	}
 }
 
-templ ListingCard(listing db.DiscoverListingsRow) {
+templ ListingCard(listing db.DiscoverListingsRow, csrf, returnURL string) {
 	<article class="card listing-card">
 		<div class="listing-placeholder" aria-hidden="true"></div>
 		<div class="listing-content">
@@ -259,6 +262,9 @@ templ ListingCard(listing db.DiscoverListingsRow) {
 			<p class="listing-price">{ priceLabel(listing.PriceMinor, listing.Currency) }</p>
 			<p>{ available(listing.Stock, listing.CanBackorder) }</p>
 			<a href={ templ.SafeURL("/stores/" + listing.SellerName) }>{ listing.SellerName }</a>
+			if csrf != "" {
+				@FavoriteForm(listing.ID.String(), listing.Title, csrf, returnURL, listing.Favorite)
+			}
 		</div>
 	</article>
 }
@@ -282,17 +288,24 @@ templ ListingDetail(theme string, listing db.PublicListingRow, regions, csrf str
 			<p>{ listing.Terms }</p>
 			<a href={ templ.SafeURL("/stores/" + listing.SellerName) }>{ "Visit " + listing.SellerName }</a>
 			if csrf != "" {
-				<form action={ templ.SafeURL("/listings/" + listing.ID.String() + "/favorite") } method="post">
-					<input type="hidden" name="csrf" value={ csrf }/>
-					if favorite {
-						<button type="submit" class="btn" name="favorite" value="remove">Remove from saved listings</button>
-					} else {
-						<button type="submit" class="btn" name="favorite" value="save">Save listing</button>
-					}
-				</form>
+				@FavoriteForm(listing.ID.String(), listing.Title, csrf, "", favorite)
 			} else {
 				<a href="/login">Sign in to save this listing</a>
 			}
 		</section>
 	}
+}
+
+templ FavoriteForm(id, title, csrf, returnURL string, favorite bool) {
+	<form action={ templ.SafeURL("/listings/" + id + "/favorite") } method="post">
+		<input type="hidden" name="csrf" value={ csrf }/>
+		if returnURL != "" {
+			<input type="hidden" name="return" value={ returnURL }/>
+		}
+		if favorite {
+			<button type="submit" class="btn" name="favorite" value="remove" aria-label={ "Remove " + title + " from saved listings" }>Remove from saved</button>
+		} else {
+			<button type="submit" class="btn" name="favorite" value="save" aria-label={ "Save " + title }>Save listing</button>
+		}
+	</form>
 }
