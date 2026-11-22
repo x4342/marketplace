@@ -1,0 +1,77 @@
+name: Local container deployment
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  compose:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      COMPOSE_FILE: compose.portainer.yaml
+      COMPOSE_PROJECT_NAME: marketplace-ci
+      MARKETPLACE_IMAGE: marketplace:ci
+      MARKETPLACE_DB_PASSWORD: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate port and migration configuration
+        run: |
+          docker compose config --format json | jq -e '
+            .services.web.ports | length == 1 and .[0].host_ip == "127.0.0.1"
+            and .[0].published == "8080" and .[0].target == 8080'
+          docker compose config --format json | jq -e '
+            .networks.database.internal and
+            (.services.postgres.ports == null) and (.services.worker.ports == null) and
+            (.services.web.depends_on.migrate.condition == "service_completed_successfully") and
+            (.services.worker.depends_on.migrate.condition == "service_completed_successfully")'
+      - name: Build and start the stack
+        run: |
+          docker build --tag "$MARKETPLACE_IMAGE" .
+          test "$(docker image inspect --format '{{.Config.User}}' "$MARKETPLACE_IMAGE")" = "65532:65532"
+          docker compose up -d --wait --wait-timeout 120
+          test "$(docker compose port web 8080)" = "127.0.0.1:8080"
+          test "$(docker inspect --format '{{.State.ExitCode}}' "$(docker compose ps -aq migrate)")" = "0"
+          test "$(docker inspect --format '{{.State.Health.Status}}' "$(docker compose ps -q worker)")" = "healthy"
+          for service in postgres worker; do
+            docker inspect --format '{{json .HostConfig.PortBindings}}' "$(docker compose ps -q "$service")" |
+              jq -e '. == null or length == 0'
+          done
+          curl -fsS http://127.0.0.1:8080/health/ready | grep -qx ready
+          curl -fsS http://127.0.0.1:8080/fragments/status | grep -Fq '<dd>Active</dd>'
+          test "$(docker compose exec -T postgres psql -U marketplace -d marketplace -Atc 'SELECT count(*) FROM listings')" = 0
+      - name: Check migration repeat, invalid credentials and fixture persistence
+        run: |
+          version=$(docker compose exec -T postgres psql -U marketplace -d marketplace -Atc 'SELECT max(version_id) FROM goose_db_version')
+          test "$version" = "$(find db/migrations -name '*.sql' -printf '%f\n' | sort | tail -1 | cut -d_ -f1 | sed 's/^0*//')"
+          docker compose run -T --rm migrate
+          if docker compose run -T --rm -e 'DATABASE_URL=postgres://marketplace:wrong@postgres:5432/marketplace?sslmode=disable' migrate; then
+            echo 'Migration accepted an invalid password'
+            exit 1
+          fi
+          docker compose exec -T postgres psql -X -v ON_ERROR_STOP=1 -U marketplace -d marketplace < db/dev-fixtures.sql
+          docker compose down
+          docker compose up -d --wait --wait-timeout 120
+          curl -fsS 'http://127.0.0.1:8080/discover?q=keyboard' | grep -F 'Compact mechanical keyboard' >/dev/null
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Browse the published loopback address with JavaScript disabled
+        run: |
+          python -m pip install playwright==1.55.0
+          python -m playwright install --with-deps chromium
+          python - <<'PY'
+          from playwright.sync_api import sync_playwright
+          from scripts.browser_smoke import verify_identity
+          with sync_playwright() as playwright:
+              browser = playwright.chromium.launch()
+              verify_identity(browser, "http://127.0.0.1:8080")
+              browser.close()
+          PY
+      - name: Collect diagnostics and remove test containers and volumes
+        if: always()
+        run: |
+          docker compose ps -a
+          docker compose logs --no-color --tail 50
+          docker compose down --volumes

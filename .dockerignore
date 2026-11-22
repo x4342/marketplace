@@ -1,0 +1,14 @@
+.git
+.github
+.codex
+.env*
+**/.env*
+**/*.pem
+**/*.key
+**/node_modules
+**/__pycache__
+bin
+internal/db
+web/templates/*_templ.go
+web/static/dist/*
+!web/static/dist/README.md

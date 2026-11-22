@@ -1,0 +1,87 @@
+x-app: &app
+  image: ${MARKETPLACE_IMAGE:?Set MARKETPLACE_IMAGE to a versioned image or image digest}
+  pull_policy: missing
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+  environment: &database-environment
+    DATABASE_URL: "postgres://marketplace:${MARKETPLACE_DB_PASSWORD:?Set MARKETPLACE_DB_PASSWORD to 64 hex characters}@postgres:5432/marketplace?sslmode=disable"
+  restart: unless-stopped
+  logging:
+    driver: local
+
+services:
+  postgres:
+    image: postgres:17-bookworm
+    environment:
+      POSTGRES_DB: marketplace
+      POSTGRES_USER: marketplace
+      POSTGRES_PASSWORD: ${MARKETPLACE_DB_PASSWORD:?Set MARKETPLACE_DB_PASSWORD to 64 hex characters}
+    volumes:
+      - marketplace-data:/var/lib/postgresql/data
+    networks: [database]
+    healthcheck:
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "marketplace", "-d", "marketplace"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+    logging:
+      driver: local
+
+  migrate:
+    <<: *app
+    command: ["/app/migrate"]
+    restart: "no"
+    networks: [database]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  web:
+    <<: *app
+    command: ["/app/web"]
+    environment:
+      <<: *database-environment
+      HTTP_ADDR: "0.0.0.0:8080"
+      MARKETPLACE_CONTAINER_BRIDGE: "1"
+    ports:
+      - "127.0.0.1:8080:8080"
+    networks: [web, database]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "/app/container-health", "web"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  worker:
+    <<: *app
+    command: ["/app/worker"]
+    networks: [database]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "/app/container-health", "worker"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+
+volumes:
+  marketplace-data:
+    name: ${MARKETPLACE_DB_VOLUME:-${COMPOSE_PROJECT_NAME}_marketplace-data}
+
+networks:
+  web:
+    driver: bridge
+  database:
+    driver: bridge
+    internal: true

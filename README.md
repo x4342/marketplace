@@ -2,7 +2,11 @@
 
 A private Go marketplace built to the [V5 blueprint](docs/v5-blueprint.md). The sandbox includes discovery, seller tools, private messaging and fulfillment, verified-order reviews, simulated checkout and payouts, and administrative moderation and disputes.
 
-## Run locally
+## Run in Portainer on Arch Linux
+
+See [M10 — Local Container Deployment](docs/local-container-deployment.md) for the localhost-only stack, versioned images, setup, and recovery.
+
+## Run locally for development
 
 Install Go 1.26.11 or later. Local development also uses Node.js 22+, Docker Compose, Make, and PostgreSQL client tools.
 
