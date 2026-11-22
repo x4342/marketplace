@@ -253,7 +253,12 @@ func (p messagePages) notifications(w http.ResponseWriter, r *http.Request) {
 		p.failure(w, r, err)
 		return
 	}
-	p.render(w, r, http.StatusOK, templates.Notifications(theme(r), rows, page))
+	orderNotices, err := p.queries.UserOrderNotifications(r.Context(), db.UserOrderNotificationsParams{Actor: session.ID, PageOffset: 30 * (page - 1)})
+	if err != nil {
+		p.failure(w, r, err)
+		return
+	}
+	p.render(w, r, http.StatusOK, templates.Notifications(theme(r), rows, orderNotices, page))
 }
 
 func (p messagePages) notification(w http.ResponseWriter, r *http.Request) {

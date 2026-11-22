@@ -32,3 +32,10 @@ VALUES
      'templates', 'Private fixture draft', 'Used to verify that draft listings remain hidden.',
      'digital', 100, 'USD', 10, false, '', ARRAY[]::text[], 'manual', 'Draft.', 'draft', NULL)
 ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO digital_assets (id, listing_id, payload)
+VALUES ('2f8a56af-cc7d-421b-897f-f943429945fb', '3cd38877-43d7-403a-94b4-450456bde7ce',
+        'Workshop inventory fixture: item, location, units on hand, reorder threshold.')
+ON CONFLICT (id) DO NOTHING;
+UPDATE listings SET digital_asset_id = '2f8a56af-cc7d-421b-897f-f943429945fb'
+WHERE id = '3cd38877-43d7-403a-94b4-450456bde7ce' AND digital_asset_id IS NULL;

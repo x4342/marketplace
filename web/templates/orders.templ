@@ -1,0 +1,272 @@
+package templates
+
+import (
+	"fmt"
+	"time"
+
+	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/x4342/marketplace/internal/db"
+)
+
+type OrderData struct {
+	Order          db.ParticipantOrderRow
+	Quote          db.Quote
+	Buyer          bool
+	Timeline       []db.OrderTimelineRow
+	Shipping       db.OrderShippingRow
+	Manual         db.ManualTaskRow
+	Tracking       string
+	HasShipment    bool
+	CSRF           string
+	PurchaseThread pgtype.UUID
+}
+
+func (d OrderData) Path() string {
+	return "/orders/" + d.Order.ID.String()
+}
+
+func stateLabel(value string) string {
+	switch value {
+	case "awaiting_payment":
+		return "Awaiting payment"
+	case "payment_detected":
+		return "Payment detected"
+	case "paid":
+		return "Paid"
+	case "fulfillment_pending":
+		return "Awaiting fulfillment"
+	case "fulfilled":
+		return "Fulfilled"
+	case "completed":
+		return "Completed"
+	case "expired":
+		return "Expired"
+	case "cancelled":
+		return "Cancelled"
+	case "fulfillment_failed":
+		return "Fulfillment failed"
+	case "disputed":
+		return "Problem reported"
+	case "under_review":
+		return "Under review"
+	case "refunded":
+		return "Refunded"
+	default:
+		return "Status unavailable"
+	}
+}
+
+func noticeDetails(kind string) (string, string) {
+	switch kind {
+	case "download":
+		return "Private download ready", "/download"
+	case "shipment":
+		return "Shipment dispatched", "#shipment"
+	case "manual_task":
+		return "Manual delivery task ready", "#manual-delivery"
+	case "manual_ready":
+		return "Manual delivery ready", "#manual-delivery"
+	case "problem":
+		return "Order problem reported", "#timeline"
+	default:
+		return "Simulated payment verified", "#timeline"
+	}
+}
+
+templ OrderNotice(notice db.UserOrderNotificationsRow) {
+	{{ label, suffix := noticeDetails(notice.Kind) }}
+	<article class="card status-card seller-panel">
+		<a class="seller-link" href={ templ.SafeURL("/orders/" + notice.OrderID.String() + suffix) }>{ label + " · " + notice.Title }</a>
+		<time datetime={ notice.CreatedAt.Time.UTC().Format(time.RFC3339) }>{ notice.CreatedAt.Time.UTC().Format("2 Jan, 15:04 UTC") }</time>
+	</article>
+}
+
+templ OrdersIndex(theme string, actor pgtype.UUID, rows []db.UserOrdersRow, page int32, more bool) {
+	@AppShell("Orders", theme) {
+		@PageHeader("Orders", "Track your purchases and sales.")
+		<div class="seller-panel">
+			if len(rows) == 0 {
+				<p>No orders on this page.</p>
+				<a class="seller-link" href="/discover">Browse listings</a>
+			}
+			for _, row := range rows {
+				<article class="card status-card seller-panel">
+					<h2><a href={ templ.SafeURL("/orders/" + row.ID.String()) } class="seller-link">{ row.Title }</a></h2>
+					if row.BuyerID == actor {
+						<p>{ "Purchase · " + stateLabel(row.State) }</p>
+					} else {
+						<p>{ "Sale · " + stateLabel(row.State) }</p>
+					}
+				</article>
+			}
+		</div>
+		@MessagePages("/orders", page, more)
+	}
+}
+
+templ CheckoutForm(theme string, listing db.PublicListingRow, csrf, key, region, address, problem string) {
+	@AppShell("Simulated checkout", theme) {
+		@PageHeader("Simulated checkout", listing.Title)
+		<div class="seller-panel commerce-panel">
+			<p class="alert alert-info">Test checkout uses a simulated provider and test units.</p>
+			if problem != "" {
+				<p class="alert alert-error" role="alert">{ problem }</p>
+			}
+			<form class="card status-card seller-form seller-panel" method="post" action={ templ.SafeURL("/listings/" + listing.ID.String() + "/checkout") }>
+				<input type="hidden" name="csrf" value={ csrf }/>
+				<input type="hidden" name="key" value={ key }/>
+				<p class="listing-price">{ priceLabel(listing.PriceMinor, listing.Currency) }</p>
+				<p>{ listing.Terms }</p>
+				if listing.Kind == "physical" {
+					<label>
+						Shipping region
+						<select class="select" name="region" required>
+							<option value="">Choose a region</option>
+							for _, option := range listing.ShipRegions {
+								<option value={ option } selected?={ option == region }>{ option }</option>
+							}
+						</select>
+					</label>
+					<label>Test shipping address <textarea class="textarea" name="address" rows="3" maxlength="300" required>{ address }</textarea></label>
+					<p>Use a fictional address in this test environment.</p>
+				}
+				<button class="btn btn-primary">Create order and quote</button>
+			</form>
+		</div>
+	}
+}
+
+templ OrderPage(theme string, d OrderData) {
+	@AppShell("Order", theme) {
+		@PageHeader(d.Order.Title, stateLabel(d.Order.State))
+		<div class="seller-panel commerce-panel">
+			<nav class="auth-links" aria-label="Order navigation"><a href="/orders">All orders</a><a href="/messages">Messages</a><a href="/notifications">Notifications</a></nav>
+			if d.PurchaseThread.Valid {
+				<a class="seller-link" href={ templ.SafeURL("/messages/" + d.PurchaseThread.String()) }>Open purchase conversation</a>
+			}
+			<section class="card status-card seller-panel" aria-label="Order snapshot">
+				<h2>Order details</h2>
+				<p class="listing-price">{ priceLabel(d.Order.PriceMinor, d.Order.Currency) }</p>
+				<p>{ d.Order.Terms }</p>
+			</section>
+			if d.Order.State == "awaiting_payment" && d.Buyer {
+				@QuotePanel(d)
+			}
+			if d.Shipping.Address != "" || d.HasShipment {
+				<section id="shipment" class="card status-card seller-panel" aria-label="Shipment">
+					<h2>Shipment</h2>
+					if d.Shipping.Address != "" {
+						<p class="commerce-preserve">{ d.Shipping.Address }</p>
+						<p>{ d.Shipping.Region }</p>
+					}
+					if d.HasShipment {
+						<p>Dispatched</p>
+						if d.Tracking != "" {
+							<p>{ "Tracking reference " + d.Tracking }</p>
+						}
+					}
+				</section>
+			}
+			if d.Manual.Deadline.Valid {
+				<section id="manual-delivery" class="card status-card seller-panel" aria-label="Manual delivery">
+					<h2>Manual delivery</h2>
+					<p>{ "Test deadline " + d.Manual.Deadline.Time.UTC().Format("2 Jan 2006, 15:04 UTC") }</p>
+					if d.Manual.Payload != "" {
+						<p class="commerce-preserve">{ d.Manual.Payload }</p>
+					}
+				</section>
+			}
+			if d.Buyer && d.Order.DeliveryMode == "automatic" && (d.Order.State == "fulfilled" || d.Order.State == "completed" || d.Order.State == "disputed" || d.Order.State == "under_review") {
+				<a class="btn btn-primary" href={ templ.SafeURL(d.Path() + "/download") }>Download private file</a>
+			}
+			if !d.Buyer && d.Order.State == "fulfillment_pending" {
+				if d.Order.Kind == "physical" {
+					@FulfillmentForm(d, "dispatch", "Tracking reference (optional)", "Mark dispatched", 100)
+				} else if d.Order.DeliveryMode == "manual" {
+					@FulfillmentForm(d, "deliver", "Private delivery instructions", "Submit delivery", 2000)
+				}
+				@OrderAction(d, "failed", "Report fulfillment failure")
+			}
+			if d.Buyer && d.Order.State == "fulfilled" {
+				@OrderAction(d, "complete", "Confirm receipt")
+			}
+			if d.Buyer && (d.Order.State == "fulfilled" || d.Order.State == "fulfillment_pending" || d.Order.State == "fulfillment_failed") {
+				@OrderAction(d, "problem", "Report a fulfillment problem")
+			}
+			<section id="timeline" class="card status-card seller-panel" aria-label="Order timeline">
+				<h2>Order timeline</h2>
+				<ol class="commerce-timeline">
+					for _, event := range d.Timeline {
+						<li>
+							<strong>{ stateLabel(event.State) }</strong>
+							<p>{ event.Reason }</p>
+							<time datetime={ event.CreatedAt.Time.UTC().Format(time.RFC3339) }>{ event.CreatedAt.Time.UTC().Format("2 Jan, 15:04 UTC") }</time>
+							<span>{ " · " + event.Actor }</span>
+						</li>
+					}
+				</ol>
+			</section>
+		</div>
+	}
+}
+
+templ QuotePanel(d OrderData) {
+	<section class="card status-card seller-panel" aria-label="Mock checkout">
+		<h2>Mock checkout</h2>
+		if d.Quote.OrderID.Valid {
+			<p>{ fmt.Sprintf("%d %s test units · %s network", d.Quote.Units, d.Quote.Asset, d.Quote.Network) }</p>
+			<p>{ "Reference " + d.Quote.ProviderRef }</p>
+			<p>{ fmt.Sprintf("Rate %d test units per accounting cent · Fee %d test units", d.Quote.RateNumerator, d.Quote.FeeUnits) }</p>
+			<p>{ "Expires " + d.Quote.ExpiresAt.Time.UTC().Format("2 Jan 2006, 15:04 UTC") }</p>
+			@OrderAction(d, "simulate", "Simulate and verify payment")
+		} else {
+			<p>The order is saved and its quote is pending.</p>
+			@OrderAction(d, "quote", "Retry simulated quote")
+		}
+		@OrderAction(d, "cancel", "Cancel unpaid order")
+	</section>
+}
+
+templ OrderAction(d OrderData, action, label string) {
+	<form method="post" action={ templ.SafeURL(d.Path() + "/actions") }>
+		<input type="hidden" name="csrf" value={ d.CSRF }/>
+		<button class="btn" name="action" value={ action }>{ label }</button>
+	</form>
+}
+
+templ FulfillmentForm(d OrderData, action, field, label string, limit int) {
+	<form class="card status-card seller-form seller-panel" method="post" action={ templ.SafeURL(d.Path() + "/actions") }>
+		<input type="hidden" name="csrf" value={ d.CSRF }/>
+		<label>
+			{ field }
+			<textarea class="textarea" name="details" maxlength={ fmt.Sprint(limit) } rows="3" required?={ action == "deliver" }></textarea>
+		</label>
+		<button class="btn btn-primary" name="action" value={ action }>{ label }</button>
+	</form>
+}
+
+templ AssetForm(theme, id, title, csrf, problem string, saved bool) {
+	@AppShell("Private download", theme) {
+		@PageHeader("Private download", title)
+		if saved {
+			<p class="alert alert-success" role="status">Private download saved for future orders.</p>
+		}
+		if problem != "" {
+			<p class="alert alert-error" role="alert">{ problem }</p>
+		}
+		<form class="card status-card seller-form seller-panel" method="post" action={ templ.SafeURL("/sell/listings/" + id + "/download") }>
+			<input type="hidden" name="csrf" value={ csrf }/>
+			<p>Save plain UTF-8 text for the test download. Existing orders keep the version selected at checkout.</p>
+			<label>Test document text <textarea class="textarea" name="payload" rows="8" required maxlength="65536"></textarea></label>
+			<button class="btn btn-primary">Save private download</button>
+		</form>
+		<a href="/sell" class="seller-link">Back to Sell</a>
+	}
+}
+
+templ OrderProblem(theme, title, detail string) {
+	@AppShell(title, theme) {
+		@PageHeader(title, detail)
+		<a class="btn" href="/orders">Open orders</a>
+	}
+}

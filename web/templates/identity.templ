@@ -71,6 +71,7 @@ templ Account(theme, username, csrf string, moderator, finance bool) {
 		@PageHeader("Account", "Signed in as "+username)
 		<section class="card status-card auth-form" aria-label="Account actions">
 			<a class="btn" href="/sell">Sell</a>
+			<a class="btn" href="/orders">Orders</a>
 			<a class="btn" href="/messages">Messages</a>
 			<a class="btn" href="/notifications">Notifications</a>
 			<a class="btn" href="/discover?saved=1">Saved listings</a>

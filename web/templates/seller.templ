@@ -83,6 +83,9 @@ templ SellerDashboard(theme, csrf string, updated, away bool, drafts []db.Seller
 						}
 						if listing.Status != "removed" {
 							<div class="seller-actions">
+								if listing.DeliveryMode == "automatic" {
+									<a class="btn" href={ templ.SafeURL("/sell/listings/" + listing.ID.String() + "/download") }>Set private download</a>
+								}
 								<form method="post" action={ templ.SafeURL("/sell/listings/" + listing.ID.String() + "/edit") }>
 									<input type="hidden" name="csrf" value={ csrf }/>
 									<button class="btn">Edit listing</button>

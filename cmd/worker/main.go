@@ -10,6 +10,7 @@ import (
 
 	"github.com/x4342/marketplace/internal/config"
 	"github.com/x4342/marketplace/internal/db"
+	"github.com/x4342/marketplace/internal/orders"
 	"github.com/x4342/marketplace/internal/platform"
 )
 
@@ -35,17 +36,24 @@ func run(ctx context.Context, log *slog.Logger) error {
 	defer pool.Close()
 
 	queries := db.New(pool)
+	checkout := orders.Simulation(pool)
 	ticker := time.NewTicker(15 * time.Second)
 	defer ticker.Stop()
 	for {
 		writeCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
 		err := queries.RecordWorkerHeartbeat(writeCtx)
 		cancel()
+		expireCtx, stopExpiry := context.WithTimeout(ctx, 3*time.Second)
+		expireErr := checkout.SweepExpired(expireCtx)
+		stopExpiry()
 		if ctx.Err() != nil {
 			return nil
 		}
 		if err != nil {
 			log.Warn("worker heartbeat failed")
+		}
+		if expireErr != nil {
+			log.Warn("unpaid order expiry sweep failed")
 		}
 		select {
 		case <-ctx.Done():
