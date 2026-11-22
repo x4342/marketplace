@@ -202,6 +202,9 @@ func readListingSubmission(w http.ResponseWriter, r *http.Request) ([]byte, erro
 		}
 		name := part.FormName()
 		if name == "image" && part.FileName() != "" {
+			if image != nil {
+				return nil, errors.New("Upload one listing image at a time.")
+			}
 			image, err = io.ReadAll(io.LimitReader(part, seller.MaxUpload+1))
 			if err != nil || len(image) > seller.MaxUpload {
 				return nil, errors.New("Upload a JPEG or PNG of 3 MB or less.")

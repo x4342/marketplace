@@ -43,7 +43,7 @@ jobs:
           python-version: '3.12'
       - run: make setup
       - run: make fmt && git diff --exit-code -- '*.go' '*.templ'
-      - run: make lint test build
+      - run: make lint test build audit
       - run: make migrate && make rollback && make migrate
       - run: |
           command -v psql || (sudo apt-get update && sudo apt-get install -y postgresql-client)
@@ -59,6 +59,23 @@ jobs:
       - run: MARKETPLACE_FINANCE_TEST_DATABASE_URL="$DATABASE_URL" go test -mod=readonly -race ./internal/http -run TestFinancePostgres -v
       - run: MARKETPLACE_ADMIN_TEST_DATABASE_URL="$DATABASE_URL" go test -mod=readonly -race ./internal/http -run TestAdminPostgres -v
       - run: bash scripts/smoke.sh
+      - run: make reconcile
+      - name: Restore populated PostgreSQL fixtures
+        run: |
+          createdb --maintenance-db "$DATABASE_URL" marketplace_restore_ci
+          export RESTORE_DATABASE_URL="${DATABASE_URL%/*}/marketplace_restore_ci?sslmode=disable"
+          # Run archive tools from the same PostgreSQL major version as the service.
+          pg_tools=$(mktemp -d)
+          for tool in pg_dump pg_restore; do
+            printf '#!/usr/bin/env bash\nexec docker run --rm -i --network host postgres:17 %s "$@"\n' "$tool" > "$pg_tools/$tool"
+            chmod +x "$pg_tools/$tool"
+          done
+          PATH="$pg_tools:$PATH" make restore-drill
+          export MARKETPLACE_ORDERS_TEST_DATABASE_URL="$RESTORE_DATABASE_URL"
+          export MARKETPLACE_FINANCE_TEST_DATABASE_URL="$RESTORE_DATABASE_URL"
+          export MARKETPLACE_ADMIN_TEST_DATABASE_URL="$RESTORE_DATABASE_URL"
+          go test -mod=readonly -race ./internal/http -run 'Test(Admin|Finance|Orders)Postgres$' -v
+          DATABASE_URL="$RESTORE_DATABASE_URL" make reconcile
       - uses: actions/upload-artifact@v4
         if: always()
         with:

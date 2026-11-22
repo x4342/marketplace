@@ -5,6 +5,7 @@ import os
 import re
 import secrets
 import subprocess
+from time import perf_counter
 from urllib.parse import urlsplit
 
 from playwright.sync_api import expect, sync_playwright
@@ -38,6 +39,22 @@ def verify_layout(browser, base_url, width):
         assert viewport and status
         assert viewport["width"] == width
         assert status["x"] >= 0 and status["x"] + status["width"] <= width
+        assert page.locator("body").evaluate("""body => {
+            const context = document.createElement('canvas').getContext('2d');
+            const luminance = color => {
+                context.fillStyle = color;
+                context.fillRect(0, 0, 1, 1);
+                const rgb = Array.from(context.getImageData(0, 0, 1, 1).data.slice(0, 3));
+                const linear = rgb.map(channel => {
+                    const value = channel / 255;
+                    return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+                });
+                return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2];
+            };
+            const style = getComputedStyle(body);
+            const [dark, light] = [luminance(style.color), luminance(style.backgroundColor)].sort((a, b) => a - b);
+            return (light + 0.05) / (dark + 0.05);
+        }""") >= 4.5
         page.screenshot(path=f"bin/smoke/{width}-{theme.lower()}.png")
 
     with page.expect_navigation():
@@ -383,6 +400,12 @@ def verify_disputes(browser, base_url):
     for width in (320, 375, 768, 1024, 1440):
         buyer.set_viewport_size({"width": width, "height": 900})
         assert buyer.locator("html").evaluate("(root) => root.scrollWidth") <= width
+        label = buyer.get_by_role("table").locator(".admin-column-label", has_text="Category").first
+        if width < 768:
+            expect(label).to_be_visible()
+            assert record.bounding_box()["height"] >= 44
+        else:
+            expect(label).to_be_hidden()
         if width in (375, 1440):
             buyer.screenshot(path=f"bin/smoke/admin-disputes-{width}.png", full_page=True)
     record.click()
@@ -390,6 +413,57 @@ def verify_disputes(browser, base_url):
     buyer.get_by_label("Decision reason").fill("Sandbox refund verified in browser")
     buyer.get_by_role("button", name="Confirm simulated refund").click()
     expect(buyer.get_by_role("region", name="Case summary")).to_contain_text("Status: refunded")
+    context.close()
+
+
+def verify_slow_no_script(browser, base_url):
+    context = browser.new_context(
+        viewport={"width": 320, "height": 900}, java_script_enabled=False, reduced_motion="reduce"
+    )
+    page = context.new_page()
+    connection = context.new_cdp_session(page)
+    connection.send("Network.enable")
+    connection.send(
+        "Network.emulateNetworkConditions",
+        {
+            "offline": False,
+            "latency": 200,
+            "downloadThroughput": 200_000,
+            "uploadThroughput": 93_750,
+        },
+    )
+    requests = []
+    page.on("request", lambda request: requests.append(request.url))
+    started = perf_counter()
+    response = page.goto(base_url + "/discover?q=keyboard")
+    expect(page.get_by_label("Sort by")).to_be_visible()
+    elapsed = perf_counter() - started
+    assert elapsed < 10, f"discovery exceeded isolated 10-second budget: {elapsed:.2f}s"
+    assert response.headers["cache-control"] == "no-store"
+    assert page.locator("html").evaluate("root => root.scrollWidth") == 320
+    assert page.evaluate("matchMedia('(prefers-reduced-motion: reduce)').matches")
+    assert page.locator("body").evaluate(
+        "body => parseFloat(getComputedStyle(body).transitionDuration) <= 0.001"
+    )
+
+    page.keyboard.press("Tab")
+    skip = page.get_by_role("link", name="Skip to content")
+    expect(skip).to_be_focused()
+    assert skip.evaluate("link => parseFloat(getComputedStyle(link).outlineWidth)") >= 2
+    page.keyboard.press("Enter")
+    expect(page.get_by_role("main")).to_be_focused()
+
+    register_fixture(page, base_url, "slowbuyer")
+    page.goto(base_url + "/listings/3cd38877-43d7-403a-94b4-450456bde7ce")
+    page.get_by_role("link", name="Simulated checkout").click()
+    page.get_by_role("button", name="Create order and quote").click()
+    page.get_by_role("button", name="Simulate and verify payment").click()
+    refreshed = page.reload()
+    assert refreshed.headers["cache-control"] == "no-store"
+    expect(page.get_by_role("link", name="Download private file")).to_be_visible()
+    assert all(urlsplit(url).netloc == urlsplit(base_url).netloc for url in requests)
+    print(f"Throttled no-JavaScript discovery: {elapsed:.2f}s. Registration and simulated checkout passed.")
+    page.screenshot(path="bin/smoke/slow-no-script-order-320.png")
     context.close()
 
 
@@ -410,6 +484,7 @@ def main():
         verify_upload_progress(browser, base_url)
         verify_orders(browser, base_url)
         verify_disputes(browser, base_url)
+        verify_slow_no_script(browser, base_url)
         browser.close()
 
 
