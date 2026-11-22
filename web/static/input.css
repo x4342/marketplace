@@ -371,3 +371,86 @@ body {
     display: none;
   }
 }
+
+.seller-panel {
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.seller-panel :is(h2, h3), .seller-form legend {
+  font-weight: 700;
+}
+
+.seller-panel > .btn {
+  justify-self: start;
+}
+
+.seller-form {
+  width: min(100%, 38rem);
+}
+
+.seller-form fieldset {
+  margin: 0;
+  min-inline-size: 0;
+}
+
+.seller-form label:not(.seller-check) {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.seller-form :is(.input, .textarea, .select, .file-input) {
+  width: 100%;
+  min-height: 44px;
+}
+
+.seller-actions, .seller-check {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.seller-check, .seller-link {
+  min-height: 44px;
+}
+
+.seller-link {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: underline;
+}
+
+.seller-errors, .seller-publish {
+  margin-block: 1rem;
+}
+
+.seller-errors {
+  display: block;
+  padding-inline-start: 1.5rem;
+  list-style-type: disc;
+}
+
+.seller-preview-image {
+  width: 100%;
+  max-height: 24rem;
+  object-fit: contain;
+}
+
+.narrow-preview {
+  width: min(100%, 20rem);
+}
+
+@media (min-width: 900px) {
+  .preview-layout {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 20rem);
+  }
+}
+
+.listing-image {
+  width: 100%;
+  aspect-ratio: 16 / 7;
+  object-fit: cover;
+}

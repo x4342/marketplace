@@ -24,6 +24,7 @@ func (a app) mountCatalog(mux *http.ServeMux, queries *db.Queries, accounts *ide
 	pages := catalogPages{identityPages: identityPages{app: a, accounts: accounts}, queries: queries}
 	mux.HandleFunc("GET /discover", pages.discover)
 	mux.HandleFunc("GET /listings/{id}", pages.listing)
+	mux.HandleFunc("GET /listings/{id}/image", pages.image)
 	mux.HandleFunc("POST /listings/{id}/favorite", pages.favorite)
 	mux.HandleFunc("GET /stores/{username}", pages.storefront)
 }
@@ -109,6 +110,19 @@ func (p catalogPages) listing(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	p.render(w, r, http.StatusOK, templates.ListingDetail(theme(r), listing, strings.Join(listing.ShipRegions, ", "), csrf, favorite))
+}
+
+func (p catalogPages) image(w http.ResponseWriter, r *http.Request) {
+	content, err := p.queries.PublicListingImage(r.Context(), listingID(r))
+	if errors.Is(err, pgx.ErrNoRows) {
+		http.NotFound(w, r)
+		return
+	}
+	if err != nil {
+		p.catalogError(w, r, err)
+		return
+	}
+	sendJPEG(w, content)
 }
 
 func (p catalogPages) favorite(w http.ResponseWriter, r *http.Request) {

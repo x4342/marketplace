@@ -18,6 +18,7 @@ import (
 
 	"github.com/x4342/marketplace/internal/db"
 	"github.com/x4342/marketplace/internal/identity"
+	"github.com/x4342/marketplace/internal/seller"
 )
 
 func TestIdentityPostgres(t *testing.T) {
@@ -33,7 +34,7 @@ func TestIdentityPostgres(t *testing.T) {
 	defer pool.Close()
 
 	service := identity.New(pool)
-	handler, err := New(db.New(pool), service, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	handler, err := New(db.New(pool), service, seller.Service{Pool: pool}, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	if err != nil {
 		t.Fatal(err)
 	}

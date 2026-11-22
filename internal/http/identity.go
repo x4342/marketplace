@@ -173,6 +173,10 @@ func validForm(w http.ResponseWriter, r *http.Request) bool {
 	if err := r.ParseForm(); err != nil {
 		return false
 	}
+	return validCSRF(r)
+}
+
+func validCSRF(r *http.Request) bool {
 	token := cookieValue(r, csrfCookie)
 	return identity.ValidToken(token) && len(r.PostForm["csrf"]) == 1 &&
 		subtle.ConstantTimeCompare([]byte(token), []byte(r.PostForm.Get("csrf"))) == 1

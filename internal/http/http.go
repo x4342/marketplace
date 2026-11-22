@@ -15,6 +15,7 @@ import (
 
 	"github.com/x4342/marketplace/internal/db"
 	"github.com/x4342/marketplace/internal/identity"
+	"github.com/x4342/marketplace/internal/seller"
 	"github.com/x4342/marketplace/web/static"
 	"github.com/x4342/marketplace/web/templates"
 )
@@ -30,15 +31,15 @@ type app struct {
 	log *slog.Logger
 }
 
-func New(queries *db.Queries, accounts *identity.Service, log *slog.Logger) (http.Handler, error) {
+func New(queries *db.Queries, accounts *identity.Service, sales seller.Service, log *slog.Logger) (http.Handler, error) {
 	assets, err := static.Assets()
 	if err != nil {
 		return nil, err
 	}
-	return routes(queries, log, assets, accounts), nil
+	return routes(queries, log, assets, accounts, sales), nil
 }
 
-func routes(heartbeat heartbeatReader, log *slog.Logger, assets fs.FS, accounts *identity.Service) http.Handler {
+func routes(heartbeat heartbeatReader, log *slog.Logger, assets fs.FS, accounts *identity.Service, sales seller.Service) http.Handler {
 	app := app{db: heartbeat, log: log}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /", app.home)
@@ -53,6 +54,7 @@ func routes(heartbeat heartbeatReader, log *slog.Logger, assets fs.FS, accounts 
 	}
 	if queries, ok := heartbeat.(*db.Queries); ok {
 		app.mountCatalog(mux, queries, accounts)
+		sellerPages{identityPages: identityPages{app: app, accounts: accounts}, queries: queries, service: sales}.mount(mux)
 	}
 
 	assetHandler := http.StripPrefix("/assets/", http.FileServerFS(assets))

@@ -70,6 +70,7 @@ templ Account(theme, username, csrf string, moderator, finance bool) {
 	@AppShell("Account", theme) {
 		@PageHeader("Account", "Signed in as "+username)
 		<section class="card status-card auth-form" aria-label="Account actions">
+			<a class="btn" href="/sell">Sell</a>
 			<a class="btn" href="/discover?saved=1">Saved listings</a>
 			if moderator {
 				<a class="btn" href="/admin/moderation">Moderation access</a>

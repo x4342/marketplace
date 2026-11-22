@@ -128,6 +128,43 @@ def verify_discovery(browser, base_url, width):
     context.close()
 
 
+
+def verify_seller(browser, base_url):
+    context = browser.new_context(
+        viewport={"width": 375, "height": 900}, java_script_enabled=False
+    )
+    page = context.new_page()
+    page.goto(base_url + "/register")
+    username = "seller_" + secrets.token_hex(6)
+    page.get_by_label("Username").fill(username)
+    page.get_by_label("New password").fill("isolated seller fixture password")
+    page.get_by_role("button", name="Create account").click()
+    page.get_by_role("link", name="Continue to account").click()
+    page.get_by_role("link", name="Sell", exact=True).click()
+    page.get_by_role("link", name="New listing").click()
+    title = "Mobile seller fixture " + username
+    page.get_by_label("Title").fill(title)
+    page.get_by_role("button", name="Save draft", exact=True).click()
+    expect(page.get_by_role("status")).to_contain_text("Draft saved")
+    expect(page.get_by_label("Title")).to_have_value(title)
+    page.get_by_label("Description").fill("Digital fixture description")
+    page.get_by_label("Category").select_option("templates")
+    page.get_by_label("Listing type").select_option("digital")
+    page.get_by_label("Price").fill("12.50")
+    page.get_by_label("Stock", exact=True).fill("2")
+    page.get_by_label("Digital delivery").select_option("manual")
+    page.get_by_label("Fulfillment terms").fill("Manual delivery after purchase")
+    page.get_by_role("button", name="Save and preview").click()
+    expect(page.get_by_role("heading", name="Listing preview", exact=True)).to_be_visible()
+    expect(page.get_by_role("region", name="Mobile preview")).to_contain_text(title)
+    bounds = page.get_by_role("region", name="Mobile preview").bounding_box()
+    assert bounds and bounds["x"] + bounds["width"] <= 375
+    page.screenshot(path="bin/smoke/seller-preview-375.png")
+    page.get_by_role("button", name="Publish listing").click()
+    expect(page.get_by_role("heading", name=title)).to_be_visible()
+    context.close()
+
+
 def main():
     base_url = os.environ["MARKETPLACE_SMOKE_URL"]
     with sync_playwright() as playwright:
@@ -140,6 +177,7 @@ def main():
         verify_identity(browser, base_url)
         for width in (375, 1024):
             verify_discovery(browser, base_url, width)
+        verify_seller(browser, base_url)
         browser.close()
 
 

@@ -68,3 +68,15 @@ For development role checks, use a test database and assign `moderator` or `fina
 Run `make fixtures` after migration to load the catalog examples. Open `/discover` for search, category and availability filters, price sorting and published storefronts. Sign in to save a listing from its detail page and find it later under Saved listings.
 
 Price comparisons use the dated simulated USD/EUR rate in migration 00003. Listing prices remain in their original currencies. Review-backed sorting and filtering require legitimate review data. Listing image uploads and seller listing management belong to M3.
+
+## Seller listing lifecycle
+
+Sign in and open **Sell** from your account. Start a private draft, save partial details, preview at desktop and mobile widths, and publish when the required fields are complete. Editing a published listing creates an independent draft. Pausing or removing it hides the listing and its media from the public catalog.
+
+Uploads accept JPEG and PNG up to 3 MB and 2048 pixels per side. The server decodes and re-encodes the image as JPEG. Vacation mode displays an away status on the seller’s published listings. Checkout enforcement belongs to the later order workflow.
+
+Run the seller integration tests against a migrated disposable database with catalog fixtures.
+
+```sh
+MARKETPLACE_SELLER_TEST_DATABASE_URL="$DATABASE_URL" go test -race ./internal/http -run TestSellerPostgres -v
+```
