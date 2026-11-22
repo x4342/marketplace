@@ -1,0 +1,170 @@
+package templates
+
+import (
+	"strconv"
+
+	"github.com/x4342/marketplace/internal/db"
+)
+
+type ThreadData struct {
+	Thread         db.ThreadRow
+	Messages       []db.ThreadMessagesRow
+	Events         []db.ThreadEventsRow
+	LatestSequence int64
+	CSRF           string
+	Older          string
+	Latest         bool
+}
+
+func (d ThreadData) Path() string {
+	return "/messages/" + d.Thread.ID.String()
+}
+
+templ Inbox(theme string, items []db.InboxRow, page int32, unread int64) {
+	@AppShell("Messages", theme) {
+		@PageHeader("Messages", strconv.FormatInt(unread, 10)+" unread conversations")
+		<nav class="auth-links" aria-label="Inbox navigation"><a href="/notifications">Notifications</a></nav>
+		<div class="seller-panel">
+			if len(items) == 0 {
+				<p>No conversations on this page. Open a published listing to message its seller.</p>
+			}
+			for _, item := range items {
+				<article class="card status-card seller-panel">
+					<h2><a class="seller-link" href={ templ.SafeURL("/messages/" + item.ID.String()) }>{ item.Title }</a></h2>
+					<p>{ "Conversation with " + item.Peer }</p>
+					if item.Unread {
+						<p>Unread messages</p>
+					}
+				</article>
+			}
+		</div>
+		@MessagePages("/messages", page, len(items) == 30)
+	}
+}
+
+templ Notifications(theme string, items []db.MessageNotificationsRow, page int32) {
+	@AppShell("Notifications", theme) {
+		@PageHeader("Notifications", "Updates to your marketplace conversations.")
+		<nav class="auth-links" aria-label="Inbox navigation"><a href="/messages">Messages</a></nav>
+		<div class="seller-panel">
+			if len(items) == 0 {
+				<p>No notifications on this page.</p>
+			}
+			for _, item := range items {
+				<article class="card status-card seller-panel">
+					<a class="seller-link" href={ templ.SafeURL("/notifications/" + item.ID.String()) }>{ "New message about " + item.Title }</a>
+					if item.Unread {
+						<p>Unread</p>
+					}
+					<time datetime={ item.CreatedAt.Time.UTC().Format("2006-01-02T15:04:05Z") }>{ item.CreatedAt.Time.UTC().Format("2 Jan, 15:04 UTC") }</time>
+				</article>
+			}
+		</div>
+		@MessagePages("/notifications", page, len(items) == 30)
+	}
+}
+
+templ MessagePages(path string, page int32, hasMore bool) {
+	if page > 1 || hasMore {
+		<nav aria-label="Pages" class="auth-links">
+			if page > 1 {
+				<a href={ templ.SafeURL(path + "?page=" + strconv.Itoa(int(page-1))) }>Previous page</a>
+			}
+			if hasMore && page < 1000 {
+				<a href={ templ.SafeURL(path + "?page=" + strconv.Itoa(int(page+1))) }>Next page</a>
+			}
+		</nav>
+	}
+}
+
+templ MessageThread(theme string, data ThreadData, updated string) {
+	@AppShell(data.Thread.Title, theme) {
+		@PageHeader(data.Thread.Title, "Conversation with "+data.Thread.Peer)
+		<div class="msg-thread seller-panel">
+			<nav class="auth-links" aria-label="Conversation navigation">
+				<a href="/messages">Inbox</a>
+				<a href={ templ.SafeURL(data.Path()) }>Latest messages</a>
+				if data.Older != "" {
+					<a href={ templ.SafeURL(data.Older) }>Older messages</a>
+				}
+			</nav>
+			if updated == "sent" {
+				<p class="alert alert-success" role="status">Message sent.</p>
+			} else if updated == "reported" {
+				<p class="alert alert-success" role="status">Report received.</p>
+			} else if updated == "block" {
+				<p class="alert alert-success" role="status">Conversation preference updated.</p>
+			}
+			@ThreadEntries(data)
+			if data.LatestSequence > 0 {
+				<form method="post" action={ templ.SafeURL(data.Path() + "/read") }>
+					<input type="hidden" name="csrf" value={ data.CSRF }/>
+					<input type="hidden" name="sequence" value={ strconv.FormatInt(data.LatestSequence, 10) }/>
+					<button class="btn">Mark as read</button>
+				</form>
+			}
+			if data.Thread.Blocked {
+				<p>Messages are paused for this conversation.</p>
+			} else {
+				<form class="seller-panel msg-form" method="post" action={ templ.SafeURL(data.Path() + "/send") }>
+					<input type="hidden" name="csrf" value={ data.CSRF }/>
+					<label for="message-body">Message</label>
+					<textarea class="textarea" id="message-body" name="message" required maxlength="2000" rows="4"></textarea>
+					<button class="btn btn-primary">Send message</button>
+				</form>
+			}
+			<details>
+				<summary class="btn">Conversation options</summary>
+				<div class="seller-panel">
+					<form method="post" action={ templ.SafeURL(data.Path() + "/block") }>
+						<input type="hidden" name="csrf" value={ data.CSRF }/>
+						if data.Thread.OwnBlock {
+							<button class="btn" name="block" value="unblock">Unblock conversation</button>
+						} else {
+							<button class="btn" name="block" value="block">Block conversation</button>
+						}
+					</form>
+					<form class="seller-panel msg-form" method="post" action={ templ.SafeURL(data.Path() + "/report") }>
+						<input type="hidden" name="csrf" value={ data.CSRF }/>
+						<label for="report-reason">Report reason</label>
+						<textarea class="textarea" id="report-reason" name="reason" required maxlength="1000" rows="3"></textarea>
+						<button class="btn">Report conversation</button>
+					</form>
+				</div>
+			</details>
+		</div>
+	}
+}
+
+templ ThreadEntries(data ThreadData) {
+	<section
+		id="thread-entries"
+		class="seller-panel"
+		aria-label="Conversation messages"
+		if data.Latest {
+			hx-get={ data.Path() + "/entries" }
+			hx-trigger="every 30s"
+			hx-swap="outerHTML"
+		}
+	>
+		if len(data.Messages) == 0 && len(data.Events) == 0 {
+			<p>No messages on this page.</p>
+		}
+		for _, event := range data.Events {
+			@PurchaseSystemEvent(event.TitleSnapshot)
+		}
+		for _, message := range data.Messages {
+			<article id={ "message-" + message.ID.String() } class="card status-card msg-entry">
+				<header>
+					<strong>{ message.Sender }</strong>
+					<time datetime={ message.SentAt.Time.UTC().Format("2006-01-02T15:04:05Z") }>{ message.SentAt.Time.UTC().Format("2 Jan, 15:04 UTC") }</time>
+				</header>
+				<p>{ message.Body }</p>
+			</article>
+		}
+	</section>
+}
+
+templ PurchaseSystemEvent(title string) {
+	<p class="alert alert-info">{ "Bought " + strconv.Quote(title) }</p>
+}

@@ -54,7 +54,9 @@ func routes(heartbeat heartbeatReader, log *slog.Logger, assets fs.FS, accounts 
 	}
 	if queries, ok := heartbeat.(*db.Queries); ok {
 		app.mountCatalog(mux, queries, accounts)
-		sellerPages{identityPages: identityPages{app: app, accounts: accounts}, queries: queries, service: sales}.mount(mux)
+		pages := identityPages{app: app, accounts: accounts}
+		sellerPages{identityPages: pages, queries: queries, service: sales}.mount(mux)
+		messagePages{identityPages: pages, queries: queries, pool: sales.Pool}.mount(mux)
 	}
 
 	assetHandler := http.StripPrefix("/assets/", http.FileServerFS(assets))

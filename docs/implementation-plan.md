@@ -8,8 +8,8 @@ The implementation agent owns engineering and verification. The repository owner
 | M1 Identity | M0 | Username-only registration and login, one-use recovery, server sessions, owner checks, CSRF, separate moderator and finance permissions, negative and expiry tests. | Implemented and tested. [Issue #3](https://github.com/x4342/marketplace/issues/3) · [PR #4](https://github.com/x4342/marketplace/pull/4) · [Green CI](https://github.com/x4342/marketplace/actions/runs/45060187899). |
 | M2 Catalog | M1 | Search/filter/storefront/favorite DB flows, mobile one and desktop two columns, visible sort, distinct availability, canonical URL/reset/history, stable paging, no fabricated ratings. | Discovery gate passed. [PR #6](https://github.com/x4342/marketplace/pull/6) · [Green CI](https://github.com/x4342/marketplace/actions/runs/45062779838) verifies PostgreSQL search, permissions, card favorites, no-JS keyboard drawer, and responsive discovery. Seller-uploaded media is tracked in M3. Review-backed facets await M6 data. |
 | M3 Seller lifecycle | M2 | Save Draft at each stage, feedback and validation for upload, preview and publishing, listing ownership, vacation blocks new checkout and preserves existing obligations and snapshots. | Seller lifecycle verified. [PR #8](https://github.com/x4342/marketplace/pull/8) · [Lifecycle CI](https://github.com/x4342/marketplace/actions/runs/45063517152). Final upload progress and recovery passed local Chromium after fixing form endpoint selection. Checkout enforcement for vacation is scheduled in M5. |
-| M4 Messaging | M1–M3 | Nonbuyers can message, participants only, block/report, unread and notification links, no-JS send, purchase events cannot be forged. | In progress. [Issue #9](https://github.com/x4342/marketplace/issues/9). |
-| M5 Orders | M3–M4 | Immutable snapshot before mock quote, physical and digital fulfillment, protected download, exactly one private purchase event including cases without prior chats. | Not started |
+| M4 Messaging | M1–M3 | Nonbuyers can message, participants only, block/report, unread and notification links, no-JS send, purchase events cannot be forged. | Messaging gate verified. [PR #10](https://github.com/x4342/marketplace/pull/10) · [Issue #9](https://github.com/x4342/marketplace/issues/9). Local PostgreSQL and race tests passed. Local Chromium verified mobile no-JS messaging, authenticated HTMX polling, and 320/375/768/1024/1440px layout. Purchase-event payment wiring follows in M5. |
+| M5 Orders | M3–M4 | Immutable snapshot before mock quote, physical and digital fulfillment, protected download, exactly one private purchase event including cases without prior chats. | Not started. [Issue #11](https://github.com/x4342/marketplace/issues/11). |
 | M6 Reviews | M5 | Eligible buyer, one written 1–5 star review per order, reject unpaid/self/unrelated, derive ratings and insights from legitimate data, protect order details. | Not started |
 | M7 Ledger | M5–M6 | Balanced append-only entries, replay-safe settlement, no concurrent overspending, payout authorization distinct from mock settlement. | Not started |
 | M8 Administration | M4–M7 | Reports, appeals and disputes, role-scoped queues, audit evidence, denial releases reservation as applicable, no finance-admin shipping access by default. | Not started |
@@ -94,14 +94,14 @@ Identifiers refer to the V5 blueprint. The engineering owner, prerequisite, revi
 
 ### M4
 
-- [ ] P04 — Not started
+- [ ] P04 — Listing contact verified. Payment-triggered system events await M5.
 - [ ] T04 — Not started
-- [ ] C04 — Not started
-- [ ] C05 — Not started
-- [ ] C06 — Not started
-- [ ] C07 — Not started
-- [ ] DB03 — Not started
-- [ ] R04 — Not started
+- [x] C04 — Private messaging scope implemented and verified
+- [ ] C05 — Immutable schema and private renderer wired. Verified-payment creation follows in M5.
+- [x] C06 — Private messaging scope implemented and verified
+- [ ] C07 — Authorized message deep links verified. Other notice types follow their owning milestones.
+- [x] DB03 — Private messaging scope implemented and verified
+- [x] R04 — Private messaging scope implemented and verified
 
 ### M5
 

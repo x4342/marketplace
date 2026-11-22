@@ -109,7 +109,7 @@ func (p catalogPages) listing(w http.ResponseWriter, r *http.Request) {
 		p.catalogError(w, r, err)
 		return
 	}
-	p.render(w, r, http.StatusOK, templates.ListingDetail(theme(r), listing, strings.Join(listing.ShipRegions, ", "), csrf, favorite))
+	p.render(w, r, http.StatusOK, templates.ListingDetail(theme(r), listing, strings.Join(listing.ShipRegions, ", "), csrf, favorite, session.ID.Valid && session.ID != listing.SellerID))
 }
 
 func (p catalogPages) image(w http.ResponseWriter, r *http.Request) {
