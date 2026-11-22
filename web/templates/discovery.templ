@@ -302,6 +302,13 @@ templ ListingDetail(theme string, listing db.PublicListingRow, regions, csrf str
 			}
 			<p>{ listing.Terms }</p>
 			<a href={ templ.SafeURL("/stores/" + listing.SellerName) }>{ "Visit " + listing.SellerName }</a>
+			if !listing.SellerAway && (listing.Stock > 0 || listing.CanBackorder) && (listing.DeliveryMode != "automatic" || listing.DigitalAssetID.Valid) {
+				if canContact {
+					<a class="btn btn-primary" href={ templ.SafeURL("/listings/" + listing.ID.String() + "/checkout") }>Simulated checkout</a>
+				} else if csrf == "" {
+					<a href="/login">Sign in to buy</a>
+				}
+			}
 			if canContact {
 				<form action={ templ.SafeURL("/listings/" + listing.ID.String() + "/conversation") } method="post">
 					<input type="hidden" name="csrf" value={ csrf }/>

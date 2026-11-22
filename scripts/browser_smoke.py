@@ -240,6 +240,78 @@ def verify_messages(browser, base_url, listing_url):
     expect(thread.get_by_text("Is this available for manual delivery?")).to_be_visible()
     enhanced.close()
 
+
+def register_fixture(page, base_url, prefix):
+    page.goto(base_url + "/register")
+    page.get_by_label("Username").fill(prefix + "_" + secrets.token_hex(6))
+    page.get_by_label("New password").fill("isolated orders fixture password")
+    page.get_by_role("button", name="Create account").click()
+
+
+def create_physical_fixture(merchant, base_url):
+    register_fixture(merchant, base_url, "seller")
+    merchant.goto(base_url + "/sell/new")
+    merchant.get_by_label("Title").fill("Browser physical order fixture")
+    merchant.get_by_label("Description").fill("Fictional physical test item")
+    merchant.get_by_label("Category").select_option("accessories")
+    merchant.get_by_label("Listing type").select_option("physical")
+    merchant.get_by_label("Price").fill("12.50")
+    merchant.get_by_label("Stock", exact=True).fill("2")
+    merchant.get_by_label("Physical condition").select_option("new")
+    merchant.get_by_label("Ships to EU").check()
+    merchant.get_by_label("Fulfillment terms").fill("Fictional dispatch in two days")
+    merchant.get_by_role("button", name="Save and preview").click()
+    merchant.get_by_role("button", name="Publish listing").click()
+    expect(merchant.get_by_role("heading", name="Browser physical order fixture")).to_be_visible()
+    return merchant.url
+
+
+def verify_orders(browser, base_url):
+    settings = {"viewport": {"width": 375, "height": 900}, "java_script_enabled": False}
+    seller_context = browser.new_context(**settings)
+    merchant = seller_context.new_page()
+    physical = create_physical_fixture(merchant, base_url)
+    buyer_context = browser.new_context(**settings, accept_downloads=True)
+    buyer = buyer_context.new_page()
+    register_fixture(buyer, base_url, "buyer")
+    buyer.goto(physical)
+    buyer.get_by_role("link", name="Simulated checkout").click()
+    buyer.get_by_label("Shipping region").select_option("EU")
+    buyer.get_by_label("Test shipping address").fill("Fictional test address")
+    buyer.get_by_role("button", name="Create order and quote").click()
+    order_url = buyer.url
+    expect(buyer.get_by_role("region", name="Mock checkout")).to_be_visible()
+    buyer.get_by_role("button", name="Simulate and verify payment").click()
+    merchant.goto(order_url)
+    expect(merchant.get_by_text("Fictional test address", exact=True)).to_be_visible()
+    merchant.get_by_label("Tracking reference").fill("TEST-123")
+    merchant.get_by_role("button", name="Mark dispatched").click()
+    buyer.reload()
+    expect(buyer.get_by_text("Tracking reference TEST-123")).to_be_visible()
+    buyer.get_by_role("button", name="Confirm receipt").click()
+    expect(buyer.get_by_text("Completed", exact=True).first).to_be_visible()
+    for width in (320, 375, 768, 1024, 1440):
+        buyer.set_viewport_size({"width": width, "height": 900})
+        assert buyer.locator("html").evaluate("(root) => root.scrollWidth") <= width
+    buyer.set_viewport_size(settings["viewport"])
+    buyer.screenshot(path="bin/smoke/physical-order-375.png")
+
+    buyer.goto(base_url + "/listings/3cd38877-43d7-403a-94b4-450456bde7ce")
+    buyer.get_by_role("link", name="Simulated checkout").click()
+    buyer.get_by_role("button", name="Create order and quote").click()
+    buyer.get_by_role("button", name="Simulate and verify payment").click()
+    with buyer.expect_download() as private_file:
+        buyer.get_by_role("link", name="Download private file").click()
+    assert "Workshop inventory fixture" in private_file.value.path().read_text()
+    buyer.get_by_role("button", name="Confirm receipt").click()
+    expect(buyer.get_by_text("Completed", exact=True).first).to_be_visible()
+    buyer.goto(base_url + "/messages")
+    buyer.get_by_role("link", name="Workshop inventory sheets").click()
+    expect(buyer.get_by_text('Bought "Workshop inventory sheets"', exact=True)).to_be_visible()
+    buyer_context.close()
+    seller_context.close()
+
+
 def main():
     base_url = os.environ["MARKETPLACE_SMOKE_URL"]
     with sync_playwright() as playwright:
@@ -255,6 +327,7 @@ def main():
         listing_url = verify_seller(browser, base_url)
         verify_messages(browser, base_url, listing_url)
         verify_upload_progress(browser, base_url)
+        verify_orders(browser, base_url)
         browser.close()
 
 

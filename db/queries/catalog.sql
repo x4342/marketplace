@@ -49,7 +49,7 @@ LIMIT 12 OFFSET sqlc.arg(skip_count)::integer;
 SELECT usd_per_eur_ppm, rate_date FROM catalog_fx_rate WHERE singleton;
 
 -- name: PublicListing :one
-SELECT l.id, l.seller_id, l.title, l.description, l.kind, l.price_minor, l.currency, l.stock, l.can_backorder,
+SELECT l.id, l.seller_id, l.digital_asset_id, l.title, l.description, l.kind, l.price_minor, l.currency, l.stock, l.can_backorder,
        l.condition, l.ship_regions, l.delivery_mode, l.terms, c.name AS category_name, u.username AS seller_name,
        EXISTS (SELECT 1 FROM listing_images i WHERE i.listing_id = l.id) AS has_image,
        EXISTS (SELECT 1 FROM seller_vacations v WHERE v.seller_id = l.seller_id) AS seller_away

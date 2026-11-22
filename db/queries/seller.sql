@@ -13,7 +13,7 @@ SELECT id, coalesce(fields->>'title', '')::text AS title, updated_at
 FROM listing_drafts WHERE seller_id = $1 ORDER BY updated_at DESC, id;
 
 -- name: SellerListings :many
-SELECT id, title, status
+SELECT id, title, status, delivery_mode
 FROM listings WHERE seller_id = $1 ORDER BY updated_at DESC, id;
 
 -- name: UpdateListingDraft :execrows

@@ -90,3 +90,17 @@ Blocking applies to the current conversation. Reports are persisted for the late
 ```sh
 MARKETPLACE_MESSAGES_TEST_DATABASE_URL="$DATABASE_URL" go test -race ./internal/http -run TestMessagesPostgres -v
 ```
+
+## Simulated orders and fulfillment
+
+Sign in as a buyer and choose **Simulated checkout** on an available listing. Physical checkout accepts fictional address details for the listing’s shipping regions. Checkout commits the order and listing snapshot before asking for a quote. The buyer can simulate a matching payment or cancel while it is unpaid. The worker expires overdue unpaid orders and restores any reserved stock.
+
+Sellers can dispatch physical orders with an optional test tracking reference or submit private manual delivery text. Automatic listings need a plain UTF-8 test document set under **Sell**. Paid buyers can download the version saved at checkout. For a seeded download, use **Workshop inventory sheets** after running `make fixtures`.
+
+The sandbox uses one unit per order, a 20-minute mock quote, 100 test units per accounting cent, and a 48-hour display deadline for manual delivery. Automatic files are limited to 64 KiB of plain UTF-8 for this simulation. Live assets, payment confirmation, retention, expiry and dispute terms remain owner decisions. Buyer problem reports reach the order timeline. Full dispute review follows in M8.
+
+```sh
+MARKETPLACE_ORDERS_TEST_DATABASE_URL="$DATABASE_URL" go test -race ./internal/http -run TestOrdersPostgres -v
+```
+
+Migration 00006 rolls back an empty order schema. Once order history exists, use a backup restore or a forward migration. Seller stock edits represent units currently available for new orders. Use a disposable database for this suite. It leaves its synthetic order records intact to respect the database’s append-only snapshots and events.

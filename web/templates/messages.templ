@@ -42,13 +42,16 @@ templ Inbox(theme string, items []db.InboxRow, page int32, unread int64) {
 	}
 }
 
-templ Notifications(theme string, items []db.MessageNotificationsRow, page int32) {
+templ Notifications(theme string, items []db.MessageNotificationsRow, orderNotices []db.UserOrderNotificationsRow, page int32) {
 	@AppShell("Notifications", theme) {
-		@PageHeader("Notifications", "Updates to your marketplace conversations.")
+		@PageHeader("Notifications", "Updates to your conversations and orders.")
 		<nav class="auth-links" aria-label="Inbox navigation"><a href="/messages">Messages</a></nav>
 		<div class="seller-panel">
-			if len(items) == 0 {
+			if len(items) == 0 && len(orderNotices) == 0 {
 				<p>No notifications on this page.</p>
+			}
+			for _, notice := range orderNotices {
+				@OrderNotice(notice)
 			}
 			for _, item := range items {
 				<article class="card status-card seller-panel">
@@ -60,7 +63,7 @@ templ Notifications(theme string, items []db.MessageNotificationsRow, page int32
 				</article>
 			}
 		</div>
-		@MessagePages("/notifications", page, len(items) == 30)
+		@MessagePages("/notifications", page, len(items) == 30 || len(orderNotices) == 30)
 	}
 }
 
