@@ -13,7 +13,7 @@ The implementation agent owns engineering and verification. The repository owner
 | M6 Reviews | M5 | Eligible buyer, one written 1–5 star review per order, reject unpaid/self/unrelated, derive ratings and insights from legitimate data, protect order details. | Implemented and locally verified. [PR #15](https://github.com/x4342/marketplace/pull/15) · [Issue #14](https://github.com/x4342/marketplace/issues/14). Six PostgreSQL suites passed, including eligibility and uniqueness, review privacy, rating thresholds, moderator role boundaries, appeals, and seller totals. Chromium verified review submission and public rendering with JavaScript disabled at five widths. |
 | M7 Ledger | M5–M6 | Balanced append-only entries, replay-safe settlement, no concurrent overspending, payout authorization distinct from mock settlement. | Implemented and locally verified. [PR #17](https://github.com/x4342/marketplace/pull/17) · PostgreSQL passed append-only journals, upgrade backfill, concurrent reservations, payment replay, refunds, reversals, and failure recovery. Chromium passed payout through reconciliation without JavaScript across the five target widths. [Issue #16](https://github.com/x4342/marketplace/issues/16). |
 | M8 Administration | M4–M7 | Reports, appeals and disputes, role-scoped queues, audit evidence, denial releases reservation as applicable, no finance-admin shipping access by default. | Implemented and tested in simulation |
-| M9 Hardening | M0–M8 | Regression suite, restore and reconciliation evidence, accessibility/Tor/no-JS review, threat model and owner readiness report. Public launch and live funds require approval. | Not started |
+| M9 Hardening | M0–M8 | Regression suite, restore and reconciliation evidence, accessibility/Tor/no-JS review, threat model and owner readiness report. Public launch and live funds require approval. | Sandbox hardening and private Tor transport verified. Tor Browser and formal accessibility sign-off pending. [Readiness report](release-readiness.md) · [Issue #20](https://github.com/x4342/marketplace/issues/20). |
 
 ## Requirement tracking
 
@@ -83,7 +83,7 @@ Identifiers refer to the V5 blueprint. The engineering owner, prerequisite, revi
 - [x] D10 — Discovery slice implemented and verified in branch CI
 - [ ] DB02 — Partial. Review-backed facets await real review data and seller lifecycle work remains in later milestones.
 - [x] R01 — Discovery slice implemented and verified in branch CI
-- [ ] Q02 — Not started
+- [x] Q02 — Discovery integration and browser regression coverage for supported facets, sorting, history and reset.
 
 ### M3
 
@@ -124,9 +124,9 @@ Identifiers refer to the V5 blueprint. The engineering owner, prerequisite, revi
 
 ### M7
 
-- [ ] P08 — Not started
-- [ ] T05 — Not started
-- [ ] F01 — Not started
+- [x] P08 — USD/EUR earnings, simulated commission and approved TEST payouts verified. Live operation remains open.
+- [x] T05 — Replaceable provider interfaces exercised with deterministic simulation adapters.
+- [x] F01 — Simulated direct checkout, denomination separation and commission verified. Live operation remains open.
 - [x] F02 — M7 simulated finance scope verified
 - [x] F03 — M7 simulated finance scope verified
 - [x] F04 — M7 simulated finance scope verified
@@ -154,11 +154,11 @@ Local verification includes lint, race-enabled Go tests, both binaries, eight Po
 
 ### M9
 
-- [ ] P01 — Not started
+- [ ] P01 — Private Tor transport verified with Chromium over a loopback-only onion network. Tor Browser and chosen release ingress remain pending.
 - [ ] P11 — Deferred by V5
-- [ ] DB08 — Not started
-- [ ] R09 — Not started
-- [ ] S05 — Not started
+- [x] DB08 — Ownership, immutable history, uniqueness, journal accounting and restored data checked.
+- [ ] R09 — Representative browser checks pass. Complete assistive-technology sign-off remains pending.
+- [ ] S05 — Draft scope, report handling, appeals and retention decisions recorded in the [policy review](policy-review.md). Owner approval is pending.
 - [ ] X01 — Open decision
 - [ ] X02 — Open decision
 - [ ] X03 — Open decision
@@ -166,3 +166,5 @@ Local verification includes lint, race-enabled Go tests, both binaries, eight Po
 - [ ] X05 — Open decision
 - [ ] X06 — Open decision
 - [ ] X07 — Open decision
+
+M9 evidence covers Q01–Q08 within the sandbox scope described in the [readiness report](release-readiness.md). Tor Browser, assistive technology, incident ownership, and production backup and recovery controls remain open.

@@ -1,10 +1,10 @@
 # Private Marketplace
 
-A private Go marketplace built to the [V5 blueprint](docs/v5-blueprint.md). The current foundation serves a PostgreSQL-backed service overview, a background-worker heartbeat, and a responsive light/dark shell.
+A private Go marketplace built to the [V5 blueprint](docs/v5-blueprint.md). The sandbox includes discovery, seller tools, private messaging and fulfillment, verified-order reviews, simulated checkout and payouts, and administrative moderation and disputes.
 
 ## Run locally
 
-Install Go 1.25+, Node.js 22+, Docker Compose, Make, and PostgreSQL client tools.
+Install Go 1.26.11 or later. Local development also uses Node.js 22+, Docker Compose, Make, and PostgreSQL client tools.
 
 ```sh
 cp .env.example .env
@@ -61,7 +61,7 @@ For the M1 PostgreSQL tests, point the explicit test variable at an isolated dev
 MARKETPLACE_IDENTITY_TEST_DATABASE_URL="$DATABASE_URL" go test -race ./internal/http -run TestIdentityPostgres -v
 ```
 
-For development role checks, use a test database and assign `moderator` or `finance_admin` to a known fixture account in `role_assignments`. Both roles are checked on each protected request. Production role provisioning and administrative queues are later work.
+For development role checks, use a test database and assign `moderator` or `finance_admin` to a known fixture account in `role_assignments`. Both roles are checked on each protected request. Production role provisioning remains part of the deployment review.
 
 ## Local discovery
 
@@ -144,3 +144,7 @@ Moderator and finance queues require separate role assignments. Finance staff ca
 ```sh
 MARKETPLACE_ADMIN_TEST_DATABASE_URL="$DATABASE_URL" go test -race ./internal/http -run TestAdminPostgres -v
 ```
+
+## Sandbox release readiness
+
+Run `make audit` to scan the application and frontend dependencies. For the populated restore drill and reconciliation commands, see [isolated operations](docs/operations.md). The [readiness report](docs/release-readiness.md) records verification evidence and remaining release decisions. The [threat model](docs/threat-model.md) and [policy draft](docs/policy-review.md) describe the current controls and outstanding approvals.

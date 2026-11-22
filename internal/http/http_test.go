@@ -89,6 +89,35 @@ func TestThemeRejectsInvalidAndCrossSitePosts(t *testing.T) {
 	}
 }
 
+func TestOnionFormsPreserveSameOriginChecks(t *testing.T) {
+	handler := testHandler(testHeartbeat{})
+	origin := "http://" + strings.Repeat("a", 56) + ".onion"
+	for _, test := range []struct {
+		requestOrigin string
+		want          int
+	}{
+		{origin, http.StatusSeeOther},
+		{"null", http.StatusForbidden},
+		{"http://other.test", http.StatusForbidden},
+	} {
+		request := httptest.NewRequest(http.MethodPost, origin+"/preferences/theme", strings.NewReader("theme=dark"))
+		request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		request.Header.Set("Origin", test.requestOrigin)
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		if response.Code != test.want || response.Header().Get("Referrer-Policy") != "same-origin" {
+			t.Fatalf("origin %q: status %d, referrer policy %q", test.requestOrigin, response.Code, response.Header().Get("Referrer-Policy"))
+		}
+	}
+
+	request := httptest.NewRequest(http.MethodGet, "http://127.0.0.1:8080/", nil)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if policy := response.Header().Get("Referrer-Policy"); policy != "no-referrer" {
+		t.Fatalf("loopback policy: %q", policy)
+	}
+}
+
 func TestDatabaseStatusAndLiveness(t *testing.T) {
 	for _, tt := range []struct {
 		name      string

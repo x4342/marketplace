@@ -250,16 +250,22 @@ templ ContentQueue(theme string, rows []db.ContentQueueRow, state string, page i
 	@AppShell("Content reports", theme) {
 		@PageHeader("Content reports", "Review listing, account, and conversation reports.")
 		@CaseFilter("/admin/content", state, []string{"open", "restricted", "dismissed", "restored", "upheld"})
-		<table class="admin-records">
-			<thead><tr><th scope="col">Report</th><th scope="col">Status</th><th scope="col">Appeal</th></tr></thead>
-			<tbody>
+		<table class="admin-records" role="table">
+			<thead role="rowgroup"><tr role="row"><th scope="col" role="columnheader">Report</th><th scope="col" role="columnheader">Status</th><th scope="col" role="columnheader">Appeal</th></tr></thead>
+			<tbody role="rowgroup">
 				for _, row := range rows {
-					<tr>
-						<td><a class="seller-link" href={ templ.SafeURL("/admin/content/" + row.ID.String()) }>{ row.Subject }</a></td>
-						<td>{ statusText(row.State) }</td>
-						<td>
+					<tr role="row">
+						<td role="cell"><a class="seller-link" href={ templ.SafeURL("/admin/content/" + row.ID.String()) }>{ row.Subject }</a></td>
+						<td role="cell">
+							@AdminColumnLabel("Status")
+							{ statusText(row.State) }
+						</td>
+						<td role="cell">
+							@AdminColumnLabel("Appeal")
 							if row.PendingAppeal {
-								Pending appeal
+								Pending
+							} else {
+								None
 							}
 						</td>
 					</tr>
@@ -277,14 +283,18 @@ templ DisputesQueue(theme string, rows []db.DisputesQueueRow, state string, page
 	@AppShell("Dispute center", theme) {
 		@PageHeader("Dispute center", "Review order cases and simulated outcomes.")
 		@CaseFilter("/admin/disputes", state, []string{"open", "hold", "released", "refunded"})
-		<table class="admin-records">
-			<thead><tr><th scope="col">Order item</th><th scope="col">Category</th><th scope="col">Status</th></tr></thead>
-			<tbody>
+		<table class="admin-records" role="table">
+			<thead role="rowgroup"><tr role="row"><th scope="col" role="columnheader">Order item</th><th scope="col" role="columnheader">Category</th><th scope="col" role="columnheader">Status</th></tr></thead>
+			<tbody role="rowgroup">
 				for _, row := range rows {
-					<tr>
-						<td><a class="seller-link" href={ templ.SafeURL("/admin/disputes/" + row.ID.String()) }>{ row.Title }</a></td>
-						<td>{ statusText(row.Category) }</td>
-						<td>
+					<tr role="row">
+						<td role="cell"><a class="seller-link" href={ templ.SafeURL("/admin/disputes/" + row.ID.String()) }>{ row.Title }</a></td>
+						<td role="cell">
+							@AdminColumnLabel("Category")
+							{ statusText(row.Category) }
+						</td>
+						<td role="cell">
+							@AdminColumnLabel("Status")
 							{ statusText(row.Status) }
 							if row.PendingAppeal {
 								<p>Pending appeal</p>
@@ -336,11 +346,21 @@ templ CasePages(path, state string, page int32, more bool) {
 templ AuditPage(theme string, rows []db.AdminAuditRow, page int32, more bool) {
 	@AppShell("Administrative audit", theme) {
 		@PageHeader("Administrative audit", "Recorded actions and case access for your administrative roles.")
-		<table class="admin-records">
-			<thead><tr><th scope="col">Action</th><th scope="col">Actor and time</th><th scope="col">Reason</th></tr></thead>
-			<tbody>
+		<table class="admin-records" role="table">
+			<thead role="rowgroup"><tr role="row"><th scope="col" role="columnheader">Action</th><th scope="col" role="columnheader">Actor and time</th><th scope="col" role="columnheader">Reason</th></tr></thead>
+			<tbody role="rowgroup">
 				for _, row := range rows {
-					<tr><td>{ row.Area+" · "+statusText(row.Action) }</td><td>{ row.Username+" · "+row.CreatedAt.Time.UTC().Format("2 Jan, 15:04 UTC") }</td><td class="commerce-preserve">{ row.Reason }</td></tr>
+					<tr role="row">
+						<td role="cell">{ row.Area+" · "+statusText(row.Action) }</td>
+						<td role="cell">
+							@AdminColumnLabel("Actor and time")
+							{ row.Username+" · "+row.CreatedAt.Time.UTC().Format("2 Jan, 15:04 UTC") }
+						</td>
+						<td role="cell" class="commerce-preserve">
+							@AdminColumnLabel("Reason")
+							{ row.Reason }
+						</td>
+					</tr>
 				}
 			</tbody>
 		</table>
@@ -349,4 +369,8 @@ templ AuditPage(theme string, rows []db.AdminAuditRow, page int32, more bool) {
 		}
 		@MessagePages("/admin/audit", page, more)
 	}
+}
+
+templ AdminColumnLabel(label string) {
+	<span class="admin-column-label" aria-hidden="true">{ label }</span>
 }
