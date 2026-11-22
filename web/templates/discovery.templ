@@ -277,7 +277,7 @@ templ ListingCard(listing db.DiscoverListingsRow, csrf, returnURL string) {
 	</article>
 }
 
-templ ListingDetail(theme string, listing db.PublicListingRow, regions, csrf string, favorite bool) {
+templ ListingDetail(theme string, listing db.PublicListingRow, regions, csrf string, favorite, canContact bool) {
 	@AppShell(listing.Title, theme) {
 		<nav class="auth-links" aria-label="Catalog navigation"><a href="/discover">Back to discovery</a></nav>
 		@PageHeader(listing.Title, listingKind(listing.Kind)+" · "+listing.CategoryName)
@@ -302,6 +302,12 @@ templ ListingDetail(theme string, listing db.PublicListingRow, regions, csrf str
 			}
 			<p>{ listing.Terms }</p>
 			<a href={ templ.SafeURL("/stores/" + listing.SellerName) }>{ "Visit " + listing.SellerName }</a>
+			if canContact {
+				<form action={ templ.SafeURL("/listings/" + listing.ID.String() + "/conversation") } method="post">
+					<input type="hidden" name="csrf" value={ csrf }/>
+					<button class="btn btn-primary">Message seller</button>
+				</form>
+			}
 			if csrf != "" {
 				@FavoriteForm(listing.ID.String(), listing.Title, csrf, "", favorite)
 			} else {

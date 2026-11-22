@@ -80,3 +80,13 @@ Run the seller integration tests against a migrated disposable database with cat
 ```sh
 MARKETPLACE_SELLER_TEST_DATABASE_URL="$DATABASE_URL" go test -race ./internal/http -run TestSellerPostgres -v
 ```
+
+## Private listing messages
+
+Sign in as a buyer and choose **Message seller** on a published listing. Open **Messages** and **Notifications** from your account. Conversations and notification links are restricted to their participants and recipients respectively. Messages are plain text. The standard HTML forms support sending, marking history as read, blocking, and reporting with JavaScript disabled.
+
+Blocking applies to the current conversation. Reports are persisted for the later moderation queue. The purchase-event renderer and append-only schema are present for verified checkout in M5.
+
+```sh
+MARKETPLACE_MESSAGES_TEST_DATABASE_URL="$DATABASE_URL" go test -race ./internal/http -run TestMessagesPostgres -v
+```

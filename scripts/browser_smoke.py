@@ -164,7 +164,9 @@ def verify_seller(browser, base_url):
     page.screenshot(path="bin/smoke/seller-preview-375.png")
     page.get_by_role("button", name="Publish listing").click()
     expect(page.get_by_role("heading", name=title)).to_be_visible()
+    listing_url = page.url
     context.close()
+    return listing_url
 
 
 
@@ -205,6 +207,39 @@ def verify_upload_progress(browser, base_url):
     expect(page.get_by_role("status")).to_contain_text("Draft saved")
     page.close()
 
+
+def verify_messages(browser, base_url, listing_url):
+    context = browser.new_context(
+        viewport={"width": 375, "height": 900}, java_script_enabled=False
+    )
+    page = context.new_page()
+    page.goto(base_url + "/register")
+    page.get_by_label("Username").fill("buyer_" + secrets.token_hex(6))
+    page.get_by_label("New password").fill("isolated buyer fixture password")
+    page.get_by_role("button", name="Create account").click()
+    page.goto(listing_url)
+    page.get_by_role("button", name="Message seller").click()
+    page.get_by_label("Message", exact=True).fill("Is this available for manual delivery?")
+    page.get_by_role("button", name="Send message").click()
+    expect(page.get_by_role("status")).to_contain_text("Message sent")
+    expect(page.get_by_text("Is this available for manual delivery?")).to_be_visible()
+    thread_url = page.url
+    page.get_by_role("link", name="Inbox", exact=True).click()
+    expect(page.get_by_role("link", name="Mobile seller fixture", exact=False)).to_be_visible()
+    signed_in = context.storage_state()
+    context.close()
+
+
+    enhanced = browser.new_context(storage_state=signed_in)
+    thread = enhanced.new_page()
+    thread.clock.install()
+    thread.goto(thread_url)
+    with thread.expect_response(lambda response: response.url.endswith("/entries")) as polled:
+        thread.clock.fast_forward(31000)
+    assert polled.value.ok
+    expect(thread.get_by_text("Is this available for manual delivery?")).to_be_visible()
+    enhanced.close()
+
 def main():
     base_url = os.environ["MARKETPLACE_SMOKE_URL"]
     with sync_playwright() as playwright:
@@ -217,7 +252,8 @@ def main():
         verify_identity(browser, base_url)
         for width in (375, 1024):
             verify_discovery(browser, base_url, width)
-        verify_seller(browser, base_url)
+        listing_url = verify_seller(browser, base_url)
+        verify_messages(browser, base_url, listing_url)
         verify_upload_progress(browser, base_url)
         browser.close()
 
