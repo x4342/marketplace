@@ -97,9 +97,10 @@ templ ListingReviews(data ListingReviewData) {
 		if len(data.Counts) == 0 {
 			<p>No reviews yet for this item.</p>
 		} else {
+			<p>{ fmt.Sprintf("Reviews for this item: %d", data.Total()) }</p>
 			<dl class="review-counts" aria-label="Item rating distribution">
-				for _, count := range data.Counts {
-					<div><dt>{ starText(count.Stars) }</dt><dd>{ strconv.FormatInt(count.Total,10) }</dd></div>
+				for _, stars := range []int16{5,4,3,2,1} {
+					<div><dt>{ starText(stars) }</dt><dd>{ strconv.FormatInt(data.Count(stars),10) }</dd></div>
 				}
 			</dl>
 		}
