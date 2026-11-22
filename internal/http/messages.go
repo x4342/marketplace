@@ -143,7 +143,11 @@ func (p messagePages) send(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return err
 		}
-		if thread.Blocked {
+		restricted, err := q.UserRestricted(r.Context(), session.ID)
+		if err != nil {
+			return err
+		}
+		if thread.Blocked || restricted {
 			return errThreadBlocked
 		}
 		message, err := q.AddMessage(r.Context(), db.AddMessageParams{ConversationID: id, SenderID: session.ID, Body: body})
@@ -268,7 +272,12 @@ func (p messagePages) notifications(w http.ResponseWriter, r *http.Request) {
 		p.failure(w, r, err)
 		return
 	}
-	p.render(w, r, http.StatusOK, templates.Notifications(theme(r), rows, orderNotices, reviewNotices, payoutNotices, page))
+	disputeNotices, err := p.queries.UserDisputeNotices(r.Context(), db.UserDisputeNoticesParams{Actor: session.ID, PageOffset: 30 * (page - 1)})
+	if err != nil {
+		p.failure(w, r, err)
+		return
+	}
+	p.render(w, r, http.StatusOK, templates.Notifications(theme(r), rows, orderNotices, reviewNotices, payoutNotices, disputeNotices, page))
 }
 
 func (p messagePages) notification(w http.ResponseWriter, r *http.Request) {

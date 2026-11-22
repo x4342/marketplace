@@ -21,6 +21,7 @@ type EarningsData struct {
 }
 
 type PayoutData struct {
+	HoldActive     bool
 	ID             pgtype.UUID
 	State          string
 	Currency       string
@@ -68,6 +69,10 @@ func payoutState(state string) string {
 		return "Reconciled"
 	case "failed":
 		return "Failed"
+	case "hold_set":
+		return "Finance hold applied"
+	case "hold_lifted":
+		return "Finance hold lifted"
 	case "stalled":
 		return "Stalled"
 	default:
@@ -157,6 +162,9 @@ templ PayoutDetail(theme string, data PayoutData) {
 					<p>{ "Available " + priceLabel(data.Available,data.Currency) }</p>
 					<p>{ "Held " + priceLabel(data.Held,data.Currency) }</p>
 				}
+				if data.HoldActive {
+					<p>Separate finance hold active.</p>
+				}
 				if data.State=="approved" {
 					<p>Finance approval recorded. The simulated provider still needs to confirm settlement.</p>
 				}
@@ -168,7 +176,7 @@ templ PayoutDetail(theme string, data PayoutData) {
 					<p>{ fmt.Sprintf("Confirmed provider units: %d TEST",data.Reconciliation.SettledUnits) }</p>
 				}
 			</section>
-			if data.Admin && data.State!="denied" && data.State!="reconciled" {
+			if data.Admin && (data.HoldActive || (data.State!="denied" && data.State!="reconciled")) {
 				@PayoutActionForm(data)
 			}
 			<section class="card status-card seller-panel" aria-label="Payout activity">
@@ -196,38 +204,50 @@ templ PayoutActionForm(data PayoutData) {
 				case "reserved":
 					<button class="btn" name="action" value="review">Start review</button>
 				case "under_review":
-					<button class="btn btn-primary" name="action" value="approve">Approve reservation</button>
+					if !data.HoldActive {
+						<button class="btn btn-primary" name="action" value="approve">Approve reservation</button>
+					}
 					<button class="btn" name="action" value="deny">Deny and release funds</button>
 				case "approved":
-					<button class="btn" name="action" value="process">Start simulated processing</button>
+					if !data.HoldActive {
+						<button class="btn" name="action" value="process">Start simulated processing</button>
+					}
 				case "processing":
 					<button class="btn" name="action" value="observe">Check provider outcome</button>
 				case "failed","stalled":
-					<button class="btn" name="action" value="process">Retry simulated processing</button>
+					if !data.HoldActive {
+						<button class="btn" name="action" value="process">Retry simulated processing</button>
+					}
 					<button class="btn" name="action" value="deny">Deny and release funds</button>
 				case "confirmed":
 					<button class="btn" name="action" value="reconcile">Reconcile confirmed payout</button>
+			}
+			if data.HoldActive {
+				<button class="btn" name="action" value="lift_hold">Lift separate hold</button>
+			} else if data.State=="reserved" || data.State=="under_review" || data.State=="approved" || data.State=="stalled" || data.State=="failed" {
+				<button class="btn" name="action" value="hold">Apply separate finance hold</button>
 			}
 		</div>
 	</form>
 }
 
-templ FinancePayoutQueue(theme string, rows []db.FinancePayoutQueueRow, page int32, more bool) {
+templ FinancePayoutQueue(theme string, rows []db.FinancePayoutQueueRow, state string, page int32, more bool) {
 	@AppShell("Payout review", theme) {
 		@PageHeader("Payout review", "Review reservations and reconcile confirmed simulated payouts.")
-		<div class="seller-panel commerce-panel">
-			<a class="seller-link" href="/admin/payment-adjustments">Simulated payment adjustments</a>
-			if len(rows)==0 {
-				<p>No active payout requests.</p>
-			}
-			for _, row := range rows {
-				<article class="card status-card seller-panel">
-					<a class="seller-link" href={ templ.SafeURL("/admin/payouts/" + row.ID.String()) }>{ row.Username+" · "+priceLabel(row.AmountMinor,row.Currency) }</a>
-					<p>{ payoutState(row.State) }</p>
-				</article>
-			}
-			@MessagePages("/admin/payouts", page, more)
-		</div>
+		<a class="seller-link" href="/admin/payment-adjustments">Simulated payment adjustments</a>
+		@CaseFilter("/admin/payouts", state, []string{"reserved", "under_review", "approved", "denied", "processing", "confirmed", "reconciled", "failed", "stalled"})
+		<table class="admin-records">
+			<thead><tr><th scope="col">Seller</th><th scope="col">Amount</th><th scope="col">Status</th></tr></thead>
+			<tbody>
+				for _, row := range rows {
+					<tr><td><a class="seller-link" href={ templ.SafeURL("/admin/payouts/" + row.ID.String()) }>{ row.Username }</a></td><td>{ priceLabel(row.AmountMinor,row.Currency) }</td><td>{ payoutState(row.State) }</td></tr>
+				}
+			</tbody>
+		</table>
+		if len(rows)==0 {
+			<p>No matching payout requests.</p>
+		}
+		@CasePages("/admin/payouts", state, page, more)
 	}
 }
 

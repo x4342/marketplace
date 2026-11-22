@@ -35,11 +35,12 @@ ORDER BY created_at DESC,id LIMIT 31 OFFSET sqlc.arg(page_offset)::integer;
 -- name: FinancePayoutQueue :many
 SELECT p.id,p.currency,p.amount_minor,p.state,p.test_units,u.username
 FROM seller_payouts p JOIN users u ON u.id=p.seller_id
-WHERE p.state NOT IN ('denied','reconciled')
+WHERE (sqlc.arg(state)::text='' AND (p.state NOT IN ('denied','reconciled') OR p.hold_active))
+    OR p.state=sqlc.arg(state)::text
 ORDER BY p.created_at,p.id LIMIT 31 OFFSET sqlc.arg(page_offset)::integer;
 
 -- name: FinancePayout :one
-SELECT p.id,p.seller_id,p.currency,p.amount_minor,p.test_units,p.state,p.attempts,u.username,
+SELECT p.id,p.seller_id,p.currency,p.amount_minor,p.test_units,p.state,p.attempts,p.hold_active,u.username,
        finance_balance(p.seller_id,p.currency,'available')::bigint AS available,
        finance_balance(p.seller_id,p.currency,'held')::bigint AS held
 FROM seller_payouts p JOIN users u ON u.id=p.seller_id WHERE p.id=$1;
@@ -63,7 +64,7 @@ SELECT * FROM reconciliation_items WHERE payout_id=$1;
 -- name: UserPayoutNotices :many
 SELECT p.id,a.action,a.created_at
 FROM seller_payouts p JOIN payout_reviews a ON a.payout_id=p.id
-WHERE p.seller_id=sqlc.arg(seller_id) AND a.action IN ('approved','denied','confirmed','failed','stalled','reconciled')
+WHERE p.seller_id=sqlc.arg(seller_id) AND a.action IN ('approved','denied','confirmed','failed','stalled','reconciled','hold_set','hold_lifted')
 ORDER BY a.id DESC LIMIT 30 OFFSET sqlc.arg(page_offset)::integer;
 
 -- name: FirstOrderObservation :one
@@ -73,8 +74,12 @@ SELECT units FROM payment_observations WHERE order_id=$1 ORDER BY created_at,eve
 SELECT o.id,o.state,i.title,i.currency,i.price_minor
 FROM orders o JOIN order_items i ON i.order_id=o.id
 WHERE o.state IN ('fulfillment_pending','fulfilled','completed','fulfillment_failed','disputed','under_review')
+AND NOT EXISTS(SELECT 1 FROM disputes d WHERE d.order_id=o.id)
 AND EXISTS (SELECT 1 FROM payment_observations p WHERE p.order_id=o.id)
 ORDER BY o.created_at DESC,o.id LIMIT 31 OFFSET sqlc.arg(page_offset)::integer;
 
 -- name: FinanceRole :one
 SELECT EXISTS(SELECT 1 FROM role_assignments WHERE user_id=$1 AND role='finance_admin')::boolean;
+
+-- name: SetPayoutHold :exec
+UPDATE seller_payouts SET hold_active=$2 WHERE id=$1;

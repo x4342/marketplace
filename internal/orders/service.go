@@ -73,6 +73,13 @@ func (s Service) Create(ctx context.Context, input Checkout) (pgtype.UUID, error
 		} else if !errors.Is(err, pgx.ErrNoRows) {
 			return err
 		}
+		restricted, err := q.UserRestricted(ctx, input.Buyer)
+		if err != nil {
+			return err
+		}
+		if restricted {
+			return ErrUnavailable
+		}
 		away, err := q.SellerVacation(ctx, listing.SellerID)
 		if err != nil {
 			return err

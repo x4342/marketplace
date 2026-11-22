@@ -12,7 +12,7 @@ The implementation agent owns engineering and verification. The repository owner
 | M5 Orders | M3–M4 | Immutable snapshot before mock quote, physical and digital fulfillment, protected download, exactly one private purchase event including cases without prior chats. | Complete in simulation. [PR #12](https://github.com/x4342/marketplace/pull/12) · [Passing CI](https://github.com/x4342/marketplace/actions/runs/45068044219) · [Issue #11](https://github.com/x4342/marketplace/issues/11). PostgreSQL verified order-before-quote, replay, stock contention, expiry, authorization, and all fulfillment types. Chromium completed physical and automatic digital purchases without JavaScript. Local worker and five-width layout checks passed. |
 | M6 Reviews | M5 | Eligible buyer, one written 1–5 star review per order, reject unpaid/self/unrelated, derive ratings and insights from legitimate data, protect order details. | Implemented and locally verified. [PR #15](https://github.com/x4342/marketplace/pull/15) · [Issue #14](https://github.com/x4342/marketplace/issues/14). Six PostgreSQL suites passed, including eligibility and uniqueness, review privacy, rating thresholds, moderator role boundaries, appeals, and seller totals. Chromium verified review submission and public rendering with JavaScript disabled at five widths. |
 | M7 Ledger | M5–M6 | Balanced append-only entries, replay-safe settlement, no concurrent overspending, payout authorization distinct from mock settlement. | Implemented and locally verified. [PR #17](https://github.com/x4342/marketplace/pull/17) · PostgreSQL passed append-only journals, upgrade backfill, concurrent reservations, payment replay, refunds, reversals, and failure recovery. Chromium passed payout through reconciliation without JavaScript across the five target widths. [Issue #16](https://github.com/x4342/marketplace/issues/16). |
-| M8 Administration | M4–M7 | Reports, appeals and disputes, role-scoped queues, audit evidence, denial releases reservation as applicable, no finance-admin shipping access by default. | Not started |
+| M8 Administration | M4–M7 | Reports, appeals and disputes, role-scoped queues, audit evidence, denial releases reservation as applicable, no finance-admin shipping access by default. | Implemented and tested in simulation |
 | M9 Hardening | M0–M8 | Regression suite, restore and reconciliation evidence, accessibility/Tor/no-JS review, threat model and owner readiness report. Public launch and live funds require approval. | Not started |
 
 ## Requirement tracking
@@ -140,15 +140,17 @@ Identifiers refer to the V5 blueprint. The engineering owner, prerequisite, revi
 
 ### M8
 
-- [ ] A10 — Not started
-- [ ] A11 — Not started
-- [ ] A12 — Not started
-- [ ] A13 — Not started
-- [ ] A14 — Not started
-- [ ] U08 — Not started
-- [ ] O07 — Not started
-- [ ] DB07 — Not started
-- [ ] R08 — Not started
+- [x] A10 — Listing, seller and conversation reports, restrictions, delisting, independent content appeals, and audited access to chat report text.
+- [x] A11 — Private case evidence and fulfillment snapshots, audited outcomes with ledger effects, and independent appeals.
+- [x] A12 — Status-filtered payout review and separate holds that survive denial until released.
+- [x] A13 — PostgreSQL integration checks for role boundaries, shipping privacy, and immutable audit history.
+- [x] A14 — Filterable queues, reasoned confirmations, and timestamped audit records.
+- [x] U08 — No-JavaScript Chromium checks for dispute intake, evidence, queue layout and moderator decisions at viewport widths from 320 to 1440 px.
+- [x] O07 — Typed complaint, case history, participant notices and appeals, with atomic simulated hold, release and refund transitions.
+- [x] DB07 — Migration 00009 adds and backfills moderation records and audit events. Empty-schema rollback and populated-history protection verified.
+- [x] R08 — Role-scoped dispute, content, finance and audit routes.
+
+Local verification includes lint, race-enabled Go tests, both binaries, eight PostgreSQL integration suites, fixture replay, and the targeted Chromium dispute test. Live policy and release review remain in X03, X06, and M9.
 
 ### M9
 

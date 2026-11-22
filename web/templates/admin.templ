@@ -1,0 +1,352 @@
+package templates
+
+import (
+	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/x4342/marketplace/internal/db"
+	"net/url"
+	"strconv"
+	"strings"
+)
+
+type DisputeData struct {
+	Record   db.DisputeRecordRow
+	History  []db.DisputeHistoryRow
+	Evidence []db.CaseEvidenceRow
+	Appeals  []db.DisputeAppealsRow
+	Actor    pgtype.UUID
+	Admin    bool
+	CSRF     string
+	Updated  bool
+}
+
+type ContentAppealCard struct {
+	Case           db.UserContentCasesRow
+	DecisionReason string
+}
+
+func statusText(s string) string { return strings.ReplaceAll(s, "_", " ") }
+
+func (d DisputeData) CanAppeal() bool {
+	if d.Record.Status != "released" && d.Record.Status != "refunded" {
+		return false
+	}
+	for _, item := range d.Appeals {
+		if item.ActorID == d.Actor {
+			return false
+		}
+	}
+	return true
+}
+
+templ DisputeForm(d OrderData) {
+	<details class="card status-card">
+		<summary class="btn">Report a fulfillment problem</summary>
+		<form class="seller-panel seller-form" method="post" action={ templ.SafeURL(d.Path() + "/actions") }>
+			<input type="hidden" name="action" value="problem"/>
+			<input type="hidden" name="csrf" value={ d.CSRF }/>
+			<label for="complaint-category">Complaint category</label>
+			<select class="select" id="complaint-category" name="category" required>
+				<option value="">Choose a category</option>
+				<option value="not_received">Item not received</option>
+				<option value="not_as_described">Item not as described</option>
+				<option value="delivery_failed">Delivery failed</option>
+				<option value="other">Other fulfillment issue</option>
+			</select>
+			<label>Describe the problem <textarea class="textarea" name="details" maxlength="2000" required rows="4"></textarea></label>
+			<p>Describe the fulfillment issue without including addresses or payment credentials.</p>
+			<button class="btn btn-primary">Open dispute</button>
+		</form>
+	</details>
+}
+
+templ DisputePage(theme string, d DisputeData) {
+	@AppShell("Dispute", theme) {
+		@PageHeader("Dispute", d.Record.Title)
+		<div class="seller-panel commerce-panel">
+			if d.Admin {
+				<a class="seller-link" href="/admin/disputes">Back to dispute center</a>
+			} else {
+				<a class="seller-link" href={ templ.SafeURL("/orders/" + d.Record.OrderID.String()) }>Back to order</a>
+			}
+			if d.Updated {
+				<p class="alert alert-success" role="status">Dispute updated.</p>
+			}
+			<section class="card status-card seller-panel" aria-label="Case summary">
+				<h2>Case summary</h2>
+				<p>{ "Status: "+statusText(d.Record.Status) }</p>
+				<p>{ "Category: "+statusText(d.Record.Category) }</p>
+				<p>{ priceLabel(d.Record.PriceMinor,d.Record.Currency) }</p>
+				<p>{ "Item type: " + statusText(d.Record.Kind) }</p>
+				if d.Record.DeliveryMode != "" {
+					<p>{ "Delivery method: " + statusText(d.Record.DeliveryMode) }</p>
+				}
+				if d.Record.Terms != "" {
+					<h3>Fulfillment terms at purchase</h3>
+					<p class="commerce-preserve">{ d.Record.Terms }</p>
+				}
+				if d.Record.DispatchRecorded {
+					<p>Dispatch recorded.</p>
+				}
+				if d.Record.ManualDeliveryRecorded {
+					<p>Manual delivery submitted.</p>
+				}
+				if d.Record.DownloadGranted {
+					<p>Download access granted.</p>
+				}
+			</section>
+			<section class="card status-card seller-panel" aria-label="Case history">
+				<h2>Case history</h2>
+				<ol class="commerce-timeline">
+					for _, item := range d.History {
+						<li><strong>{ statusText(item.Action) }</strong><p class="commerce-preserve">{ item.Detail }</p><small>{ item.Actor+" · "+item.CreatedAt.Time.UTC().Format("2 Jan, 15:04 UTC") }</small></li>
+					}
+				</ol>
+			</section>
+			<section class="card status-card seller-panel" aria-label="Restricted evidence">
+				<h2>Restricted evidence and responses</h2>
+				if len(d.Evidence)==0 {
+					<p>No submissions yet.</p>
+				}
+				for _, item := range d.Evidence {
+					<article class="seller-panel"><strong>{ statusText(item.Kind)+" · "+item.Username }</strong><p class="commerce-preserve">{ item.Body }</p><small>{ item.CreatedAt.Time.UTC().Format("2 Jan, 15:04 UTC") }</small></article>
+				}
+				if !d.Admin && (d.Record.Status=="open" || d.Record.Status=="hold") {
+					<form class="seller-panel seller-form" method="post" action={ templ.SafeURL("/disputes/" + d.Record.ID.String() + "/evidence") }>
+						<input type="hidden" name="csrf" value={ d.CSRF }/>
+						<label for="evidence-kind">Submission type</label>
+						<select id="evidence-kind" class="select" name="kind"><option value="response">Response</option><option value="evidence">Evidence</option></select>
+						<label>Submission <textarea class="textarea" name="body" maxlength="2000" required rows="4"></textarea></label>
+						<button class="btn">Submit to case</button>
+					</form>
+				}
+			</section>
+			if d.Admin && (d.Record.Status=="open" || d.Record.Status=="hold") {
+				<form class="card status-card seller-panel seller-form" method="post" action={ templ.SafeURL("/admin/disputes/" + d.Record.ID.String() + "/decision") }>
+					<input type="hidden" name="csrf" value={ d.CSRF }/>
+					<label>Decision reason <textarea class="textarea" name="reason" maxlength="1000" required rows="3"></textarea></label>
+					<div class="seller-actions">
+						if d.Record.Status=="open" {
+							<button class="btn" name="action" value="hold">Keep funds held</button>
+						}
+						<button class="btn" name="action" value="release">Confirm simulated release</button>
+						<button class="btn" name="action" value="refund">Confirm simulated refund</button>
+					</div>
+				</form>
+			}
+			for _, appeal := range d.Appeals {
+				<section class="card status-card seller-panel" aria-label="Dispute appeal">
+					<h2>{ "Appeal · "+statusText(appeal.Outcome) }</h2>
+					<p class="commerce-preserve">{ appeal.Reason }</p>
+					<small>{ appeal.CreatedAt.Time.UTC().Format("2 Jan, 15:04 UTC") }</small>
+					if d.Admin && appeal.Outcome=="pending" && d.Record.DecidedBy!=d.Actor {
+						<form class="seller-panel seller-form" method="post" action={ templ.SafeURL("/admin/disputes/" + d.Record.ID.String() + "/decision") }>
+							<input type="hidden" name="csrf" value={ d.CSRF }/>
+							<input type="hidden" name="appeal" value={ appeal.ID.String() }/>
+							<label>Appeal decision reason <textarea class="textarea" name="reason" maxlength="1000" required rows="3"></textarea></label>
+							<div class="seller-actions"><button class="btn" name="action" value="upheld">Uphold outcome</button><button class="btn" name="action" value="referred">Refer for further review</button></div>
+							<p>Referral records a review request. It does not change posted funds.</p>
+						</form>
+					}
+				</section>
+			}
+			if !d.Admin && d.CanAppeal() {
+				<form class="card status-card seller-panel seller-form" method="post" action={ templ.SafeURL("/disputes/" + d.Record.ID.String() + "/appeal") }>
+					<input type="hidden" name="csrf" value={ d.CSRF }/>
+					<label>Appeal reason <textarea class="textarea" name="reason" maxlength="1000" required rows="3"></textarea></label>
+					<button class="btn">Submit dispute appeal</button>
+				</form>
+			}
+		</div>
+	}
+}
+
+templ ListingReport(id, csrf string, sent bool) {
+	<section id="content-report" class="review-section">
+		if sent {
+			<p class="alert alert-success" role="status">Content report received.</p>
+		}
+		<details>
+			<summary class="btn">Report listing or seller</summary>
+			<form class="seller-panel seller-form" method="post" action={ templ.SafeURL("/listings/" + id + "/report") }>
+				<input type="hidden" name="csrf" value={ csrf }/>
+				<label for="report-target">Report target</label>
+				<select class="select" id="report-target" name="kind"><option value="listing">Listing</option><option value="seller">Seller account</option></select>
+				<label>Report reason <textarea class="textarea" name="reason" required maxlength="1000" rows="3"></textarea></label>
+				<button class="btn">Send content report</button>
+			</form>
+		</details>
+	</section>
+}
+
+templ ContentDetail(theme string, row db.ContentReportRecordRow, appeals []db.PendingContentAppealsRow, csrf string, updated bool) {
+	@AppShell("Content report", theme) {
+		@PageHeader("Content report", row.Subject)
+		<div class="seller-panel commerce-panel">
+			<a class="seller-link" href="/admin/content">Back to content reports</a>
+			if updated {
+				<p class="alert alert-success" role="status">Content decision recorded.</p>
+			}
+			<section class="card status-card seller-panel" aria-label="Report details">
+				<p>{ "Status: "+statusText(row.State) }</p>
+				<p class="commerce-preserve">{ row.Reason }</p>
+				if row.ConversationID.Valid {
+					<p>This record contains the submitted report. Private chat remains visible to its participants.</p>
+				}
+				for _, appeal := range appeals {
+					<p class="commerce-preserve">{ "Appeal: "+appeal.Reason }</p>
+				}
+			</section>
+			if row.State=="open" || len(appeals)>0 {
+				<form class="card status-card seller-panel seller-form" method="post" action={ templ.SafeURL("/admin/content/" + row.ID.String() + "/decision") }>
+					<input type="hidden" name="csrf" value={ csrf }/>
+					<label>Decision reason <textarea class="textarea" name="reason" maxlength="1000" required rows="3"></textarea></label>
+					<div class="seller-actions">
+						if row.State=="open" {
+							<button class="btn" name="action" value="dismiss">Dismiss report</button>
+							<button class="btn" name="action" value="restrict">Confirm restriction</button>
+						} else {
+							<button class="btn" name="action" value="restore">Lift restriction</button>
+							<button class="btn" name="action" value="uphold">Keep restriction</button>
+						}
+					</div>
+				</form>
+			}
+		</div>
+	}
+}
+
+templ MyContentCases(theme string, cases []ContentAppealCard, csrf string, page int32, more, sent bool) {
+	@AppShell("Moderation decisions", theme) {
+		@PageHeader("Moderation decisions", "View decisions that affect your account, listings or conversations.")
+		if sent {
+			<p class="alert alert-success" role="status">Content appeal received.</p>
+		}
+		<div class="seller-panel commerce-panel">
+			if len(cases)==0 {
+				<p>No moderation decisions on this page.</p>
+			}
+			for _, current := range cases {
+				<article class="card status-card seller-panel">
+					<h2>{ current.Case.Subject }</h2>
+					<p>{ statusText(current.Case.State) }</p>
+					if current.DecisionReason!="" {
+						<p class="commerce-preserve">{ current.DecisionReason }</p>
+					}
+					if current.Case.State=="restricted" && !current.Case.Appealed {
+						<form class="seller-panel seller-form" method="post" action={ templ.SafeURL("/account/moderation/" + current.Case.ID.String() + "/appeal") }>
+							<input type="hidden" name="csrf" value={ csrf }/>
+							<label>Appeal reason <textarea class="textarea" name="reason" maxlength="1000" required rows="3"></textarea></label>
+							<button class="btn">Submit content appeal</button>
+						</form>
+					}
+				</article>
+			}
+			@MessagePages("/account/moderation", page, more)
+		</div>
+	}
+}
+
+templ ContentQueue(theme string, rows []db.ContentQueueRow, state string, page int32, more bool) {
+	@AppShell("Content reports", theme) {
+		@PageHeader("Content reports", "Review listing, account, and conversation reports.")
+		@CaseFilter("/admin/content", state, []string{"open", "restricted", "dismissed", "restored", "upheld"})
+		<table class="admin-records">
+			<thead><tr><th scope="col">Report</th><th scope="col">Status</th><th scope="col">Appeal</th></tr></thead>
+			<tbody>
+				for _, row := range rows {
+					<tr>
+						<td><a class="seller-link" href={ templ.SafeURL("/admin/content/" + row.ID.String()) }>{ row.Subject }</a></td>
+						<td>{ statusText(row.State) }</td>
+						<td>
+							if row.PendingAppeal {
+								Pending appeal
+							}
+						</td>
+					</tr>
+				}
+			</tbody>
+		</table>
+		if len(rows)==0 {
+			<p>No matching content reports.</p>
+		}
+		@CasePages("/admin/content", state, page, more)
+	}
+}
+
+templ DisputesQueue(theme string, rows []db.DisputesQueueRow, state string, page int32, more bool) {
+	@AppShell("Dispute center", theme) {
+		@PageHeader("Dispute center", "Review order cases and simulated outcomes.")
+		@CaseFilter("/admin/disputes", state, []string{"open", "hold", "released", "refunded"})
+		<table class="admin-records">
+			<thead><tr><th scope="col">Order item</th><th scope="col">Category</th><th scope="col">Status</th></tr></thead>
+			<tbody>
+				for _, row := range rows {
+					<tr>
+						<td><a class="seller-link" href={ templ.SafeURL("/admin/disputes/" + row.ID.String()) }>{ row.Title }</a></td>
+						<td>{ statusText(row.Category) }</td>
+						<td>
+							{ statusText(row.Status) }
+							if row.PendingAppeal {
+								<p>Pending appeal</p>
+							}
+						</td>
+					</tr>
+				}
+			</tbody>
+		</table>
+		if len(rows)==0 {
+			<p>No matching disputes.</p>
+		}
+		@CasePages("/admin/disputes", state, page, more)
+	}
+}
+
+templ CaseFilter(path, state string, values []string) {
+	<form class="seller-actions" action={ templ.SafeURL(path) } method="get">
+		<label for="admin-state">Status</label>
+		<select id="admin-state" name="state" class="select">
+			<option value="">Any status</option>
+			for _, value := range values {
+				<option value={ value } selected?={ value==state }>{ statusText(value) }</option>
+			}
+		</select>
+		<button class="btn">Filter</button>
+	</form>
+}
+
+func casePage(path, state string, page int32) string {
+	q := url.Values{"page": {strconv.Itoa(int(page))}}
+	if state != "" {
+		q.Set("state", state)
+	}
+	return path + "?" + q.Encode()
+}
+
+templ CasePages(path, state string, page int32, more bool) {
+	<nav class="auth-links" aria-label="Case pages">
+		if page>1 {
+			<a href={ templ.SafeURL(casePage(path, state, page-1)) }>Previous page</a>
+		}
+		if more && page<1000 {
+			<a href={ templ.SafeURL(casePage(path, state, page+1)) }>Next page</a>
+		}
+	</nav>
+}
+
+templ AuditPage(theme string, rows []db.AdminAuditRow, page int32, more bool) {
+	@AppShell("Administrative audit", theme) {
+		@PageHeader("Administrative audit", "Recorded actions and case access for your administrative roles.")
+		<table class="admin-records">
+			<thead><tr><th scope="col">Action</th><th scope="col">Actor and time</th><th scope="col">Reason</th></tr></thead>
+			<tbody>
+				for _, row := range rows {
+					<tr><td>{ row.Area+" · "+statusText(row.Action) }</td><td>{ row.Username+" · "+row.CreatedAt.Time.UTC().Format("2 Jan, 15:04 UTC") }</td><td class="commerce-preserve">{ row.Reason }</td></tr>
+				}
+			</tbody>
+		</table>
+		if len(rows)==0 {
+			<p>No audit events for your roles on this page.</p>
+		}
+		@MessagePages("/admin/audit", page, more)
+	}
+}

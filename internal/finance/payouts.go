@@ -95,6 +95,9 @@ func (s Service) Act(ctx context.Context, admin, id pgtype.UUID, action, reason 
 			return ErrRole
 		}
 
+		if action == "hold" || action == "lift_hold" {
+			return payoutHold(ctx, q, p, admin, action, reason)
+		}
 		next, attempt := p.State, p.Attempts
 		switch action {
 		case "review":
@@ -103,7 +106,7 @@ func (s Service) Act(ctx context.Context, admin, id pgtype.UUID, action, reason 
 			}
 			next = "under_review"
 		case "approve":
-			if p.State != "under_review" {
+			if p.State != "under_review" || p.HoldActive {
 				return ErrState
 			}
 			next = "approved"
@@ -111,12 +114,16 @@ func (s Service) Act(ctx context.Context, admin, id pgtype.UUID, action, reason 
 			if p.State != "under_review" && p.State != "failed" && p.State != "stalled" {
 				return ErrState
 			}
-			if err := post(ctx, q, "denial", id, p.SellerID, p.Currency, []string{"reserved", "available"}, []int64{-p.AmountMinor, p.AmountMinor}); err != nil {
+			destination := "available"
+			if p.HoldActive {
+				destination = "held"
+			}
+			if err := post(ctx, q, "denial", id, p.SellerID, p.Currency, []string{"reserved", destination}, []int64{-p.AmountMinor, p.AmountMinor}); err != nil {
 				return err
 			}
 			next = "denied"
 		case "process":
-			if p.State != "approved" && p.State != "failed" && p.State != "stalled" {
+			if p.HoldActive || (p.State != "approved" && p.State != "failed" && p.State != "stalled") {
 				return ErrState
 			}
 			next, attempt = "processing", attempt+1
@@ -206,4 +213,24 @@ func ValidReason(reason string) bool {
 
 func (s Service) tx(ctx context.Context, f func(*db.Queries) error) error {
 	return pgx.BeginFunc(ctx, s.Pool, func(tx pgx.Tx) error { return f(db.New(tx)) })
+}
+
+func payoutHold(ctx context.Context, q *db.Queries, p db.SellerPayout, admin pgtype.UUID, action, reason string) error {
+	active := action == "hold"
+	if p.HoldActive == active || p.State == "processing" || p.State == "confirmed" || p.State == "reconciled" || (p.State == "denied" && active) {
+		return ErrState
+	}
+	if p.State == "denied" {
+		if err := post(ctx, q, "lift-denial-hold", p.ID, p.SellerID, p.Currency, []string{"held", "available"}, []int64{-p.AmountMinor, p.AmountMinor}); err != nil {
+			return err
+		}
+	}
+	if err := q.SetPayoutHold(ctx, db.SetPayoutHoldParams{ID: p.ID, HoldActive: active}); err != nil {
+		return err
+	}
+	label := "hold_lifted"
+	if active {
+		label = "hold_set"
+	}
+	return audit(ctx, q, p.ID, admin, label, reason)
 }

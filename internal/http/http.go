@@ -16,6 +16,7 @@ import (
 	"github.com/x4342/marketplace/internal/db"
 	"github.com/x4342/marketplace/internal/finance"
 	"github.com/x4342/marketplace/internal/identity"
+	"github.com/x4342/marketplace/internal/moderation"
 	"github.com/x4342/marketplace/internal/orders"
 	"github.com/x4342/marketplace/internal/reviews"
 	"github.com/x4342/marketplace/internal/seller"
@@ -61,6 +62,7 @@ func routes(heartbeat heartbeatReader, log *slog.Logger, assets fs.FS, accounts 
 		sellerPages{identityPages: pages, queries: queries, service: sales}.mount(mux)
 		messagePages{identityPages: pages, queries: queries, pool: sales.Pool}.mount(mux)
 		checkout := orders.Simulation(sales.Pool)
+		adminPages{identityPages: pages, queries: queries, content: moderation.Service{Pool: sales.Pool}, checkout: checkout}.mount(mux)
 		orderPages{identityPages: pages, queries: queries, service: checkout}.mount(mux)
 		financePages{identityPages: pages, queries: queries, ledger: finance.Simulation(sales.Pool), checkout: checkout}.mount(mux)
 		reviewPages{identityPages: pages, queries: queries, service: reviews.Service{Pool: sales.Pool}}.mount(mux)

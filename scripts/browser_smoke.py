@@ -4,6 +4,7 @@ import base64
 import os
 import re
 import secrets
+import subprocess
 from urllib.parse import urlsplit
 
 from playwright.sync_api import expect, sync_playwright
@@ -243,9 +244,11 @@ def verify_messages(browser, base_url, listing_url):
 
 def register_fixture(page, base_url, prefix):
     page.goto(base_url + "/register")
-    page.get_by_label("Username").fill(prefix + "_" + secrets.token_hex(6))
+    username = prefix + "_" + secrets.token_hex(6)
+    page.get_by_label("Username").fill(username)
     page.get_by_label("New password").fill("isolated orders fixture password")
     page.get_by_role("button", name="Create account").click()
+    return username
 
 
 def create_physical_fixture(merchant, base_url):
@@ -339,6 +342,57 @@ def verify_orders(browser, base_url):
     seller_context.close()
 
 
+def verify_disputes(browser, base_url):
+    context = browser.new_context(viewport={"width": 375, "height": 900}, java_script_enabled=False)
+    buyer = context.new_page()
+    register_fixture(buyer, base_url, "disputebuyer")
+    buyer.goto(base_url + "/listings/3cd38877-43d7-403a-94b4-450456bde7ce")
+    buyer.get_by_role("link", name="Simulated checkout").click()
+    buyer.get_by_role("button", name="Create order and quote").click()
+    buyer.get_by_role("button", name="Simulate and verify payment").click()
+    buyer.get_by_text("Report a fulfillment problem", exact=True).click()
+    buyer.get_by_label("Complaint category").select_option("delivery_failed")
+    buyer.get_by_label("Describe the problem").fill("Synthetic fulfillment issue")
+    buyer.get_by_role("button", name="Open dispute").click()
+    buyer.get_by_role("link", name="Open dispute").click()
+    expect(buyer.get_by_role("region", name="Case history")).to_contain_text("Synthetic fulfillment issue")
+    buyer.get_by_label("Submission type").select_option("evidence")
+    buyer.get_by_role("textbox", name="Submission", exact=True).fill("Synthetic browser evidence")
+    buyer.get_by_role("button", name="Submit to case").click()
+    expect(buyer.get_by_role("status")).to_contain_text("Dispute updated")
+    expect(buyer.get_by_role("region", name="Restricted evidence")).to_contain_text("Synthetic browser evidence")
+    for width in (320, 375, 768, 1024, 1440):
+        buyer.set_viewport_size({"width": width, "height": 900})
+        assert buyer.locator("html").evaluate("(root) => root.scrollWidth") <= width
+    buyer.set_viewport_size({"width": 375, "height": 900})
+    buyer.screenshot(path="bin/smoke/dispute-375.png")
+    case_path = buyer.url.split("?", 1)[0].removeprefix(base_url)
+
+    buyer.goto(base_url + "/account")
+    buyer.get_by_role("button", name="Sign out").click()
+    username = register_fixture(buyer, base_url, "browsermod")
+    subprocess.run(
+        ["psql", os.environ["DATABASE_URL"], "-X", "-v", "ON_ERROR_STOP=1", "-v", "username=" + username],
+        input="INSERT INTO role_assignments(user_id,role) SELECT id,'moderator' FROM users WHERE username=:'username';",
+        text=True,
+        check=True,
+    )
+    buyer.goto(base_url + "/admin/disputes?state=open")
+    record = buyer.locator(f'a[href="/admin{case_path}"]')
+    expect(record).to_be_visible()
+    for width in (320, 375, 768, 1024, 1440):
+        buyer.set_viewport_size({"width": width, "height": 900})
+        assert buyer.locator("html").evaluate("(root) => root.scrollWidth") <= width
+        if width in (375, 1440):
+            buyer.screenshot(path=f"bin/smoke/admin-disputes-{width}.png", full_page=True)
+    record.click()
+    expect(buyer.get_by_role("region", name="Restricted evidence")).to_contain_text("Synthetic browser evidence")
+    buyer.get_by_label("Decision reason").fill("Sandbox refund verified in browser")
+    buyer.get_by_role("button", name="Confirm simulated refund").click()
+    expect(buyer.get_by_role("region", name="Case summary")).to_contain_text("Status: refunded")
+    context.close()
+
+
 def main():
     base_url = os.environ["MARKETPLACE_SMOKE_URL"]
     with sync_playwright() as playwright:
@@ -355,6 +409,7 @@ def main():
         verify_messages(browser, base_url, listing_url)
         verify_upload_progress(browser, base_url)
         verify_orders(browser, base_url)
+        verify_disputes(browser, base_url)
         browser.close()
 
 

@@ -300,7 +300,7 @@ templ ListingCard(listing db.DiscoverListingsRow, csrf, returnURL string) {
 	</article>
 }
 
-templ ListingDetail(theme string, listing db.PublicListingRow, regions, csrf string, favorite, canContact bool, reviewData ListingReviewData) {
+templ ListingDetail(theme string, listing db.PublicListingRow, regions, csrf string, favorite, canContact bool, reviewData ListingReviewData, contentReported bool) {
 	@AppShell(listing.Title, theme) {
 		<nav class="auth-links" aria-label="Catalog navigation"><a href="/discover">Back to discovery</a></nav>
 		@PageHeader(listing.Title, listingKind(listing.Kind)+" · "+listing.CategoryName)
@@ -345,6 +345,9 @@ templ ListingDetail(theme string, listing db.PublicListingRow, regions, csrf str
 			}
 		</section>
 		@ListingReviews(reviewData)
+		if canContact {
+			@ListingReport(listing.ID.String(), csrf, contentReported)
+		}
 	}
 }
 

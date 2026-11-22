@@ -80,6 +80,11 @@ func (s Service) Act(ctx context.Context, id, actor pgtype.UUID, action, input s
 			if actor != order.BuyerID || (order.State != "fulfillment_pending" && order.State != "fulfilled" && order.State != "fulfillment_failed") {
 				return ErrState
 			}
+			category, reason, valid := Complaint(input)
+			if !valid {
+				return ErrState
+			}
+
 			if order.State != "fulfillment_failed" {
 				if err := finance.MoveSale(ctx, q, order, "held"); err != nil {
 					return err
@@ -88,7 +93,7 @@ func (s Service) Act(ctx context.Context, id, actor pgtype.UUID, action, input s
 			if err := transition(ctx, q, id, actor, "disputed", "Buyer flagged a fulfillment problem"); err != nil {
 				return err
 			}
-			return notify(ctx, q, id, order.SellerID, "problem")
+			return openDispute(ctx, q, id, actor, category, reason)
 		case "failed":
 			if actor != order.SellerID || order.State != "fulfillment_pending" {
 				return ErrState

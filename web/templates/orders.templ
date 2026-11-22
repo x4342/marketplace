@@ -9,6 +9,7 @@ import (
 )
 
 type OrderData struct {
+	DisputeID      pgtype.UUID
 	Review         db.BuyerReviewStatusRow
 	ReviewSaved    bool
 	Order          db.ParticipantOrderRow
@@ -193,7 +194,10 @@ templ OrderPage(theme string, d OrderData) {
 				@OrderAction(d, "complete", "Confirm receipt")
 			}
 			if d.Buyer && (d.Order.State == "fulfilled" || d.Order.State == "fulfillment_pending" || d.Order.State == "fulfillment_failed") {
-				@OrderAction(d, "problem", "Report a fulfillment problem")
+				@DisputeForm(d)
+			}
+			if d.DisputeID.Valid {
+				<a class="btn" href={ templ.SafeURL("/disputes/" + d.DisputeID.String()) }>Open dispute</a>
 			}
 			if d.Review.Eligible || d.Review.ReviewID.Valid {
 				@OrderReview(d)

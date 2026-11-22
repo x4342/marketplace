@@ -49,7 +49,7 @@ ON CONFLICT (id) DO UPDATE SET
     status = 'published',
     published_at = coalesce(listings.published_at, now()),
     updated_at = now()
-WHERE listings.seller_id = excluded.seller_id AND listings.status <> 'removed';
+WHERE listings.seller_id = excluded.seller_id AND listings.status <> 'removed' AND NOT listings.moderation_locked;
 
 -- name: ConsumeListingDraft :exec
 DELETE FROM listing_drafts WHERE id = $1 AND seller_id = $2;
@@ -58,7 +58,10 @@ DELETE FROM listing_drafts WHERE id = $1 AND seller_id = $2;
 UPDATE listings SET status = sqlc.arg(next_status), updated_at = now()
 WHERE id = sqlc.arg(id) AND seller_id = sqlc.arg(seller_id)
   AND ((status = 'published' AND sqlc.arg(next_status)::text IN ('paused', 'removed'))
-    OR (status = 'paused' AND sqlc.arg(next_status)::text IN ('published', 'removed')));
+    OR (status = 'paused' AND sqlc.arg(next_status)::text IN ('published', 'removed')))
+  AND (sqlc.arg(next_status)::text <> 'published' OR (NOT moderation_locked AND NOT EXISTS (
+      SELECT 1 FROM user_restrictions u WHERE u.user_id = listings.seller_id
+  )));
 
 -- name: PutListingImage :exec
 INSERT INTO listing_images (listing_id, image_jpeg) VALUES ($1, $2)
