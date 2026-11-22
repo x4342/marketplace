@@ -8,7 +8,7 @@ GOOSE := go run github.com/pressly/goose/v3/cmd/goose@v3.24.3 -dir db/migrations
 
 setup:
 	go mod download
-	npm install --no-audit --no-fund
+	npm ci --no-audit --no-fund
 
 generate:
 	$(TEMPL) generate

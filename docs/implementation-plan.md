@@ -4,8 +4,8 @@ The implementation agent owns engineering and verification. The repository owner
 
 | Milestone | Depends on | Acceptance gate | Status and evidence |
 | --- | --- | --- | --- |
-| M0 Foundation | Empty repo audited | Fresh configure, migrate up/down, generate, build, format, test, and run web/worker. Local assets, persistent theme, keyboard and no-JS shell across 320/375/768/1024/1440px. | Implemented, verification pending. Branch `feature/m0-foundation`. [Issue #1](https://github.com/x4342/marketplace/issues/1). |
-| M1 Identity | M0 | Username-only registration and login, one-use recovery, server sessions, owner checks, CSRF, separate moderator and finance permissions, negative and expiry tests. | Not started |
+| M0 Foundation | Empty repo audited | Fresh configure, migrate up/down, generate, build, format, test, and run web/worker. Local assets, persistent theme, keyboard and no-JS shell across 320/375/768/1024/1440px. | Implemented, verification pending. Branch `feature/m0-foundation`. [Issue #1](https://github.com/x4342/marketplace/issues/1) · [PR #2](https://github.com/x4342/marketplace/pull/2). |
+| M1 Identity | M0 | Username-only registration and login, one-use recovery, server sessions, owner checks, CSRF, separate moderator and finance permissions, negative and expiry tests. | Not started. [Issue #3](https://github.com/x4342/marketplace/issues/3). |
 | M2 Catalog | M1 | Search/filter/storefront/favorite DB flows, mobile one and desktop two columns, visible sort, distinct availability, canonical URL/reset/history, stable paging, no fabricated ratings. | Not started |
 | M3 Seller lifecycle | M2 | Save Draft at each stage, feedback and validation for upload, preview and publishing, listing ownership, vacation blocks new checkout and preserves existing obligations and snapshots. | Not started |
 | M4 Messaging | M1–M3 | Nonbuyers can message, participants only, block/report, unread and notification links, no-JS send, purchase events cannot be forged. | Not started |

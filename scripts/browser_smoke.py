@@ -56,7 +56,9 @@ def verify_htmx(browser, base_url):
 def main():
     base_url = os.environ["MARKETPLACE_SMOKE_URL"]
     with sync_playwright() as playwright:
-        browser = playwright.chromium.launch()
+        browser = playwright.chromium.launch(
+            executable_path=os.getenv("MARKETPLACE_CHROMIUM_EXECUTABLE")
+        )
         for width in (320, 375, 768, 1024, 1440):
             verify_layout(browser, base_url, width)
         verify_htmx(browser, base_url)

@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   checks:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
       DATABASE_URL: postgres://marketplace:marketplace-local@127.0.0.1:54329/marketplace?sslmode=disable
@@ -42,7 +42,7 @@ jobs:
         with:
           python-version: '3.12'
       - run: make setup
-      - run: make fmt && git diff --exit-code -- '*.go'
+      - run: make fmt && git diff --exit-code -- '*.go' '*.templ'
       - run: make lint test build
       - run: make migrate && make rollback && make migrate
       - run: |
