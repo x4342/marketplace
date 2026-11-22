@@ -30,7 +30,7 @@ func testHandler(heartbeat testHeartbeat) http.Handler {
 		"app.css":     &fstest.MapFile{Data: []byte("body{}")},
 		"htmx.min.js": &fstest.MapFile{Data: []byte("// htmx")},
 	}
-	return routes(heartbeat, slog.New(slog.NewTextHandler(io.Discard, nil)), assets)
+	return routes(heartbeat, slog.New(slog.NewTextHandler(io.Discard, nil)), assets, nil)
 }
 
 func TestThemePOSTAndRender(t *testing.T) {

@@ -170,3 +170,39 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+
+.account-link, .auth-links a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  text-decoration: underline;
+}
+
+.account-link {
+  margin-left: auto;
+}
+
+.auth-form {
+  display: grid;
+  gap: 0.75rem;
+  width: min(100%, 28rem);
+}
+
+.auth-form .input {
+  width: 100%;
+  min-height: 44px;
+}
+
+.auth-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 1rem;
+  margin-top: 0.5rem;
+}
+
+.recovery-codes {
+  display: grid;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  overflow-wrap: anywhere;
+}
