@@ -1,0 +1,59 @@
+name: Foundation CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DATABASE_URL: postgres://marketplace:marketplace-local@127.0.0.1:54329/marketplace?sslmode=disable
+      HTTP_ADDR: 127.0.0.1:8080
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: marketplace
+          POSTGRES_PASSWORD: marketplace-local
+          POSTGRES_DB: marketplace
+        ports:
+          - 54329:5432
+        options: >-
+          --health-cmd "pg_isready -U marketplace -d marketplace"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: make setup
+      - run: make fmt && git diff --exit-code -- '*.go'
+      - run: make lint test build
+      - run: make migrate && make rollback && make migrate
+      - run: |
+          command -v psql || (sudo apt-get update && sudo apt-get install -y postgresql-client)
+          make fixtures && make fixtures
+          python -m pip install playwright==1.55.0
+          python -m playwright install --with-deps chromium
+      - run: bash scripts/smoke.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: foundation-smoke
+          path: bin/smoke/
+          if-no-files-found: ignore

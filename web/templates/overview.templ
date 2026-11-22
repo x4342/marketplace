@@ -1,0 +1,55 @@
+package templates
+
+type Status struct {
+	DatabaseReady bool
+	WorkerActive bool
+}
+
+templ Overview(theme string, status Status) {
+	@AppShell("Overview", theme) {
+		@PageHeader("Overview", "Check the local marketplace services.")
+		<section class="card status-card" aria-labelledby="status-heading">
+			<div class="status-header">
+				<h2 id="status-heading">System status</h2>
+				<form action="/" method="get" hx-get="/fragments/status" hx-target="#service-status" hx-swap="outerHTML" hx-disabled-elt="find button">
+					<button type="submit" class="btn btn-sm">Refresh status</button>
+				</form>
+			</div>
+			@SystemStatus(status)
+		</section>
+	}
+}
+
+templ SystemStatus(status Status) {
+	<div id="service-status" aria-live="polite">
+		<dl class="status-list">
+			<div>
+				<dt>Web server</dt>
+				<dd>Running</dd>
+			</div>
+			<div>
+				<dt>PostgreSQL</dt>
+				if status.DatabaseReady {
+					<dd>Ready</dd>
+				} else {
+					<dd>Unavailable</dd>
+				}
+			</div>
+			<div>
+				<dt>Background worker</dt>
+				if status.WorkerActive {
+					<dd>Active</dd>
+				} else if status.DatabaseReady {
+					<dd>No recent heartbeat</dd>
+				} else {
+					<dd>Status unavailable</dd>
+				}
+			</div>
+		</dl>
+		if !status.DatabaseReady {
+			<p class="status-help">Start the local PostgreSQL service and apply the migrations, then refresh.</p>
+		} else if !status.WorkerActive {
+			<p class="status-help">Start the local worker, then refresh.</p>
+		}
+	</div>
+}

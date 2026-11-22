@@ -1,0 +1,66 @@
+package templates
+
+import "strconv"
+
+templ AppShell(title, theme string) {
+	<!DOCTYPE html>
+	<html lang="en"
+		if theme != "" {
+			data-theme={ theme }
+		}
+	>
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<meta name="color-scheme" content="light dark"/>
+			<meta name="htmx-config" content={ `{"allowEval":false,"allowScriptTags":false,"includeIndicatorStyles":false,"historyCacheSize":0,"selfRequestsOnly":true}` }/>
+			<title>{ title } | Private Marketplace</title>
+			<link rel="stylesheet" href="/assets/app.css"/>
+			<script src="/assets/htmx.min.js" defer></script>
+		</head>
+		<body>
+			<a class="skip-link btn" href="#main-content">Skip to content</a>
+			@Topbar(theme)
+			<div class="app-layout">
+				@Sidebar()
+				<main id="main-content" tabindex="-1" class="app-main">
+					{ children... }
+				</main>
+			</div>
+		</body>
+	</html>
+}
+
+templ Topbar(theme string) {
+	<header class="topbar">
+		<div class="brand">
+			<a href="/">Private Marketplace</a>
+		</div>
+		<form action="/preferences/theme" method="post" class="theme-picker" aria-label="Color theme">
+			<button class="btn btn-sm" type="submit" name="theme" value="light" aria-pressed={ strconv.FormatBool(theme == "light") }>Light</button>
+			<button class="btn btn-sm" type="submit" name="theme" value="dark" aria-pressed={ strconv.FormatBool(theme == "dark") }>Dark</button>
+		</form>
+	</header>
+}
+
+templ Sidebar() {
+	<aside class="sidebar">
+		<nav aria-label="Main navigation">
+			<a class="nav-link" href="/">Overview</a>
+		</nav>
+	</aside>
+}
+
+templ PageHeader(title, description string) {
+	<header class="page-header">
+		<h1>{ title }</h1>
+		<p>{ description }</p>
+	</header>
+}
+
+templ Problem(theme, title, message string) {
+	@AppShell(title, theme) {
+		@PageHeader(title, message)
+		<a class="btn btn-primary" href="/">Return to overview</a>
+	}
+}

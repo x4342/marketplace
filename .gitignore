@@ -1,0 +1,9 @@
+.env
+.env.*
+!.env.example
+/bin/
+/node_modules/
+/internal/db/
+/web/templates/*_templ.go
+/web/static/dist/*
+!/web/static/dist/README.md
