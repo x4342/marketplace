@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/x4342/marketplace/internal/identity"
 	"github.com/x4342/marketplace/web/static"
 	"github.com/x4342/marketplace/web/templates"
 )
@@ -28,15 +29,15 @@ type app struct {
 	log *slog.Logger
 }
 
-func New(db heartbeatReader, log *slog.Logger) (http.Handler, error) {
+func New(db heartbeatReader, accounts *identity.Service, log *slog.Logger) (http.Handler, error) {
 	assets, err := static.Assets()
 	if err != nil {
 		return nil, err
 	}
-	return routes(db, log, assets), nil
+	return routes(db, log, assets, accounts), nil
 }
 
-func routes(db heartbeatReader, log *slog.Logger, assets fs.FS) http.Handler {
+func routes(db heartbeatReader, log *slog.Logger, assets fs.FS, accounts *identity.Service) http.Handler {
 	app := app{db: db, log: log}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /", app.home)
@@ -46,6 +47,9 @@ func routes(db heartbeatReader, log *slog.Logger, assets fs.FS) http.Handler {
 	})
 	mux.HandleFunc("GET /health/ready", app.ready)
 	mux.HandleFunc("GET /fragments/status", app.statusFragment)
+	if accounts != nil {
+		app.mountIdentity(mux, accounts)
+	}
 
 	assetHandler := http.StripPrefix("/assets/", http.FileServerFS(assets))
 	for _, path := range []string{"/assets/app.css", "/assets/htmx.min.js"} {

@@ -1,6 +1,7 @@
 """Check the built app against the running local PostgreSQL fixture."""
 
 import os
+import secrets
 from urllib.parse import urlsplit
 
 from playwright.sync_api import expect, sync_playwright
@@ -53,6 +54,35 @@ def verify_htmx(browser, base_url):
     page.close()
 
 
+
+def verify_identity(browser, base_url):
+    context = browser.new_context(
+        viewport={"width": 320, "height": 900}, java_script_enabled=False
+    )
+    page = context.new_page()
+    username = "browser_" + secrets.token_hex(6)
+    password = "isolated fixture password"
+    page.goto(base_url + "/register")
+    page.get_by_label("Username").fill(username)
+    page.get_by_label("New password").fill(password)
+    page.get_by_role("button", name="Create account").click()
+    expect(page.get_by_role("heading", name="Save your recovery codes")).to_be_visible()
+    expect(page.locator(".recovery-codes code")).to_have_count(5)
+    page.get_by_role("link", name="Continue to account").click()
+    expect(page.get_by_text("Signed in as " + username)).to_be_visible()
+    page.get_by_role("button", name="Sign out").click()
+    expect(page.get_by_role("heading", name="Sign in")).to_be_visible()
+    page.get_by_label("Username").fill(username)
+    page.get_by_label("Password").fill("incorrect fixture password")
+    page.get_by_role("button", name="Sign in").click()
+    expect(page.get_by_role("alert")).to_be_visible()
+    expect(page.get_by_label("Username")).to_have_value(username)
+    page.get_by_label("Password").fill(password)
+    page.get_by_role("button", name="Sign in").click()
+    expect(page.get_by_text("Signed in as " + username)).to_be_visible()
+    context.close()
+
+
 def main():
     base_url = os.environ["MARKETPLACE_SMOKE_URL"]
     with sync_playwright() as playwright:
@@ -62,6 +92,7 @@ def main():
         for width in (320, 375, 768, 1024, 1440):
             verify_layout(browser, base_url, width)
         verify_htmx(browser, base_url)
+        verify_identity(browser, base_url)
         browser.close()
 
 
