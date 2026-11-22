@@ -13,7 +13,7 @@ The implementation agent owns engineering and verification. The repository owner
 | M6 Reviews | M5 | Eligible buyer, one written 1–5 star review per order, reject unpaid/self/unrelated, derive ratings and insights from legitimate data, protect order details. | Implemented and locally verified. [PR #15](https://github.com/x4342/marketplace/pull/15) · [Issue #14](https://github.com/x4342/marketplace/issues/14). Six PostgreSQL suites passed, including eligibility and uniqueness, review privacy, rating thresholds, moderator role boundaries, appeals, and seller totals. Chromium verified review submission and public rendering with JavaScript disabled at five widths. |
 | M7 Ledger | M5–M6 | Balanced append-only entries, replay-safe settlement, no concurrent overspending, payout authorization distinct from mock settlement. | Implemented and locally verified. [PR #17](https://github.com/x4342/marketplace/pull/17) · PostgreSQL passed append-only journals, upgrade backfill, concurrent reservations, payment replay, refunds, reversals, and failure recovery. Chromium passed payout through reconciliation without JavaScript across the five target widths. [Issue #16](https://github.com/x4342/marketplace/issues/16). |
 | M8 Administration | M4–M7 | Reports, appeals and disputes, role-scoped queues, audit evidence, denial releases reservation as applicable, no finance-admin shipping access by default. | Implemented and tested in simulation |
-| M9 Hardening | M0–M8 | Regression suite, restore and reconciliation evidence, accessibility/Tor/no-JS review, threat model and owner readiness report. Public launch and live funds require approval. | Sandbox checks verified. Tor transport and formal accessibility sign-off pending. [Readiness report](release-readiness.md) · [Issue #20](https://github.com/x4342/marketplace/issues/20). |
+| M9 Hardening | M0–M8 | Regression suite, restore and reconciliation evidence, accessibility/Tor/no-JS review, threat model and owner readiness report. Public launch and live funds require approval. | Sandbox hardening and private Tor transport verified. Tor Browser and formal accessibility sign-off pending. [Readiness report](release-readiness.md) · [Issue #20](https://github.com/x4342/marketplace/issues/20). |
 
 ## Requirement tracking
 
@@ -154,7 +154,7 @@ Local verification includes lint, race-enabled Go tests, both binaries, eight Po
 
 ### M9
 
-- [ ] P01 — Simulator works on loopback. Actual Tor transport and chosen release ingress remain pending.
+- [ ] P01 — Private Tor transport verified with Chromium over a loopback-only onion network. Tor Browser and chosen release ingress remain pending.
 - [ ] P11 — Deferred by V5
 - [x] DB08 — Ownership, immutable history, uniqueness, journal accounting and restored data checked.
 - [ ] R09 — Representative browser checks pass. Complete assistive-technology sign-off remains pending.
@@ -167,4 +167,4 @@ Local verification includes lint, race-enabled Go tests, both binaries, eight Po
 - [ ] X06 — Open decision
 - [ ] X07 — Open decision
 
-M9 evidence covers Q01–Q08 within the sandbox scope described in the [readiness report](release-readiness.md). Actual Tor, assistive technology, incident ownership, and production backup and recovery controls remain open.
+M9 evidence covers Q01–Q08 within the sandbox scope described in the [readiness report](release-readiness.md). Tor Browser, assistive technology, incident ownership, and production backup and recovery controls remain open.

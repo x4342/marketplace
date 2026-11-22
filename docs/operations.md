@@ -31,10 +31,22 @@ Escalation contacts, evidence handling, notification obligations, and authority 
 
 | Area | Current sandbox configuration | Required before any external preview or live release |
 | --- | --- | --- |
-| Web ingress and headers | Numeric loopback listener, request timeouts, private responses with `no-store`, same-origin CSP, no referrer and MIME sniffing disabled | Approve Onion or regular web access, TLS termination, trusted host and proxy rules, cookie security in the actual browser, and resource ceilings. The current HTTPS cookie flag uses direct TLS state. Proxy headers are not used to infer trust. |
+| Web ingress and headers | Numeric loopback listener, request timeouts, private responses with `no-store`, same-origin CSP, no cross-site referrers and MIME sniffing disabled | Approve Onion or regular web access, TLS termination, trusted host and proxy rules, cookie security in the actual browser, and resource ceilings. The current HTTPS cookie flag uses direct TLS state. |
 | Database | Local PostgreSQL, synthetic fixture credentials, migrations and application share the test role | Use separate migration/operator/app roles, review least privilege and TLS, set encrypted backup policy, and prove recovery on the chosen infrastructure. |
 | Revision and health | Go web and worker services, readiness and heartbeat endpoints, local asset build | Pin an approved maintained toolchain, scan supported dependencies, keep internal health endpoints restricted as appropriate, and choose alert routing and deployment ownership. |
 | Secrets | Local environment variables, simulator credentials, no wallet keys | Provision a protected secret manager and least-privilege provider identities only after separate approval. |
 | Financial operations | Mock quote and verification, TEST payouts, sandbox dispute buttons | Approve provider, legal scope, settlement/reconciliation rules, and staff control procedures. |
 
-Tor reference [Tor Project onion service documentation](https://community.torproject.org/onion-services/setup/).
+## Private Tor browser smoke
+
+For an isolated Chutney `hs-v3-min` network, point the disposable onion service at the loopback sandbox app. Keep authorities, relays, directory and SOCKS listeners on loopback, use local test authorities and disable public fallbacks and exits. Use only synthetic accounts and the seeded catalog. Stop the test network after the run.
+
+```sh
+MARKETPLACE_TOR_ORIGIN="http://$TEST_ONION_HOSTNAME" \
+MARKETPLACE_TOR_PROXY="socks5://127.0.0.1:9006" \
+python scripts/tor_smoke.py
+```
+
+The optional smoke uses Chromium over the private Tor client's SOCKS port, with JavaScript disabled. An onion response uses a same-origin referrer policy so standard browser form posts carry their origin to the marketplace. Normal cross-origin protections and private form tokens continue to apply.
+
+References [Tor Project onion service documentation](https://community.torproject.org/onion-services/setup/) and [Fetch Standard origin header rules](https://fetch.spec.whatwg.org/#origin-header).

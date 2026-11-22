@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"log/slog"
 	"net/http"
+	"regexp"
 	"time"
 
 	"github.com/a-h/templ"
@@ -25,6 +26,8 @@ import (
 )
 
 const themeCookie = "marketplace_theme"
+
+var onionHost = regexp.MustCompile(`(?i)^[a-z2-7]{56}\.onion(?::[0-9]{1,5})?$`)
 
 type heartbeatReader interface {
 	WorkerHeartbeat(context.Context) (pgtype.Timestamptz, error)
@@ -85,7 +88,12 @@ func routes(heartbeat heartbeatReader, log *slog.Logger, assets fs.FS, accounts 
 		w.Header().Set("Cache-Control", "no-store")
 		w.Header().Set("Content-Security-Policy", "default-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
-		w.Header().Set("Referrer-Policy", "no-referrer")
+		referrerPolicy := "no-referrer"
+		if onionHost.MatchString(r.Host) {
+			// Preserve Origin on same-origin form POSTs from HTTP onion services.
+			referrerPolicy = "same-origin"
+		}
+		w.Header().Set("Referrer-Policy", referrerPolicy)
 		protected.ServeHTTP(w, r)
 	})
 }
