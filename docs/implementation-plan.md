@@ -9,7 +9,7 @@ The implementation agent owns engineering and verification. The repository owner
 | M2 Catalog | M1 | Search/filter/storefront/favorite DB flows, mobile one and desktop two columns, visible sort, distinct availability, canonical URL/reset/history, stable paging, no fabricated ratings. | Discovery gate passed. [PR #6](https://github.com/x4342/marketplace/pull/6) · [Green CI](https://github.com/x4342/marketplace/actions/runs/45062779838) verifies PostgreSQL search, permissions, card favorites, no-JS keyboard drawer, and responsive discovery. Seller-uploaded media is tracked in M3. Review-backed facets await M6 data. |
 | M3 Seller lifecycle | M2 | Save Draft at each stage, feedback and validation for upload, preview and publishing, listing ownership, vacation blocks new checkout and preserves existing obligations and snapshots. | Seller lifecycle verified. [PR #8](https://github.com/x4342/marketplace/pull/8) · [Lifecycle CI](https://github.com/x4342/marketplace/actions/runs/45063517152). Final upload progress and recovery passed local Chromium after fixing form endpoint selection. Checkout enforcement for vacation is scheduled in M5. |
 | M4 Messaging | M1–M3 | Nonbuyers can message, participants only, block/report, unread and notification links, no-JS send, purchase events cannot be forged. | Messaging gate verified. [PR #10](https://github.com/x4342/marketplace/pull/10) · [Issue #9](https://github.com/x4342/marketplace/issues/9). Local PostgreSQL and race tests passed. Local Chromium verified mobile no-JS messaging, authenticated HTMX polling, and 320/375/768/1024/1440px layout. Purchase-event payment wiring follows in M5. |
-| M5 Orders | M3–M4 | Immutable snapshot before mock quote, physical and digital fulfillment, protected download, exactly one private purchase event including cases without prior chats. | Implemented. Checkout, immutable snapshots, simulator, expiry, physical and digital fulfillment, and private purchase events are wired. Local PostgreSQL verification and browser checks track the acceptance gate. [Issue #11](https://github.com/x4342/marketplace/issues/11). |
+| M5 Orders | M3–M4 | Immutable snapshot before mock quote, physical and digital fulfillment, protected download, exactly one private purchase event including cases without prior chats. | Complete in simulation. [PR #12](https://github.com/x4342/marketplace/pull/12) · [Passing CI](https://github.com/x4342/marketplace/actions/runs/45068044219) · [Issue #11](https://github.com/x4342/marketplace/issues/11). PostgreSQL verified order-before-quote, replay, stock contention, expiry, authorization, and all fulfillment types. Chromium completed physical and automatic digital purchases without JavaScript. Local worker and five-width layout checks passed. |
 | M6 Reviews | M5 | Eligible buyer, one written 1–5 star review per order, reject unpaid/self/unrelated, derive ratings and insights from legitimate data, protect order details. | Not started |
 | M7 Ledger | M5–M6 | Balanced append-only entries, replay-safe settlement, no concurrent overspending, payout authorization distinct from mock settlement. | Not started |
 | M8 Administration | M4–M7 | Reports, appeals and disputes, role-scoped queues, audit evidence, denial releases reservation as applicable, no finance-admin shipping access by default. | Not started |
@@ -87,34 +87,34 @@ Identifiers refer to the V5 blueprint. The engineering owner, prerequisite, revi
 
 ### M3
 
-- [ ] P06 — Not started
+- [x] P06 — Physical, automatic digital, and manual digital fulfillment verified in simulation
 - [x] C02 — Seller lifecycle and uploads verified
 - [ ] C03 — Seller labels, management, and vacation visibility verified. Order and analytics integrations follow.
 - [x] R02 — Published details and seller forms verified
 
 ### M4
 
-- [ ] P04 — Listing contact verified. Payment-triggered system events await M5.
+- [x] P04 — Listing contact and private verified-payment event verified
 - [ ] T04 — Not started
 - [x] C04 — Private messaging scope implemented and verified
-- [ ] C05 — Immutable schema and private renderer wired. Verified-payment creation follows in M5.
+- [x] C05 — One immutable private event per verified order, including when no thread existed
 - [x] C06 — Private messaging scope implemented and verified
-- [ ] C07 — Authorized message deep links verified. Other notice types follow their owning milestones.
+- [ ] C07 — Message, payment, shipment, manual delivery and download links verified. Dispute and payout notifications follow their owning milestones.
 - [x] DB03 — Private messaging scope implemented and verified
 - [x] R04 — Private messaging scope implemented and verified
 
 ### M5
 
-- [ ] P07 — Not started
+- [x] P07 — Simulated direct checkout verified. Live provider and asset decisions remain open
 - [ ] P10 — Not started
-- [ ] O01 — Not started
-- [ ] O02 — Not started
-- [ ] O03 — Not started
-- [ ] O04 — Not started
-- [ ] O05 — Not started
-- [ ] DB04 — Not started
-- [ ] R05 — Not started
-- [ ] Q06 — Not started
+- [x] O01 — Committed unpaid order, stock reservation, and immutable snapshot verified before quoting
+- [ ] O02 — Simulated payment, fulfillment, expiry, cancellation, and problem flag verified. Reviewed and refunded states await the later dispute and financial workflows.
+- [x] O03 — Participant-scoped shipping, dispatch, and receipt verified in simulation
+- [x] O04 — Versioned protected automatic download and outsider denial verified
+- [x] O05 — Seller task, deadline, private delivery, and buyer problem route verified
+- [ ] DB04 — Order, timeline, shipment, and fulfillment tables verified. Reviews and dispute tables follow in M6 and M8.
+- [x] R05 — Orders, mock checkout, and timeline forms verified
+- [x] Q06 — Commerce integration and no-JavaScript acceptance flows verified
 
 ### M6
 
