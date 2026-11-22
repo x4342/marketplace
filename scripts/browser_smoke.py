@@ -80,6 +80,51 @@ def verify_identity(browser, base_url):
     page.get_by_label("Password").fill(password)
     page.get_by_role("button", name="Sign in").click()
     expect(page.get_by_text("Signed in as " + username)).to_be_visible()
+    page.goto(base_url + "/discover?q=keyboard")
+    save = page.get_by_role("button", name="Save Compact mechanical keyboard")
+    save.click()
+    expect(page).to_have_url(base_url + "/discover?q=keyboard")
+    expect(page.get_by_role("button", name="Remove Compact mechanical keyboard from saved listings")).to_be_visible()
+    context.close()
+
+
+
+def verify_discovery(browser, base_url, width):
+    context = browser.new_context(
+        viewport={"width": width, "height": 900}, java_script_enabled=False
+    )
+    page = context.new_page()
+    page.goto(base_url + "/discover")
+    expect(page.get_by_label("Sort by")).to_be_visible()
+    count = page.locator(".listing-grid").evaluate(
+        "(grid) => getComputedStyle(grid).gridTemplateColumns.split(' ').length"
+    )
+    assert count == (1 if width < 768 else 2)
+    page.screenshot(path=f"bin/smoke/discovery-{width}.png")
+    if width < 1024:
+        summary = page.locator(".filter-drawer summary")
+        summary.focus()
+        page.keyboard.press("Enter")
+        expect(summary).to_be_focused()
+        expect(summary).to_contain_text("Close filters")
+        expect(page.get_by_label("Sort by")).to_be_hidden()
+        page.keyboard.press("Tab")
+        expect(page.locator(".filter-drawer input[type=search]")).to_be_focused()
+        page.keyboard.press("Shift+Tab")
+        page.keyboard.press("Enter")
+        expect(summary).to_be_focused()
+        expect(page.get_by_label("Sort by")).to_be_visible()
+        page.keyboard.press("Enter")
+        filters = page.locator(".filter-drawer")
+    else:
+        filters = page.locator(".discovery-rail")
+    filters.get_by_label("Availability").select_option("orderable")
+    filters.get_by_role("button", name="Apply filters").click()
+    expect(page.get_by_role("link", name="Cork desk mat")).to_be_visible()
+    expect(page.get_by_role("link", name="Compact mechanical keyboard")).to_have_count(0)
+    expect(page.get_by_label("Sort by")).to_be_visible()
+    page.go_back()
+    expect(page.get_by_role("link", name="Compact mechanical keyboard")).to_be_visible()
     context.close()
 
 
@@ -93,6 +138,8 @@ def main():
             verify_layout(browser, base_url, width)
         verify_htmx(browser, base_url)
         verify_identity(browser, base_url)
+        for width in (375, 1024):
+            verify_discovery(browser, base_url, width)
         browser.close()
 
 

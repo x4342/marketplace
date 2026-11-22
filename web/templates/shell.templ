@@ -37,6 +37,7 @@ templ Topbar(theme string) {
 		<div class="brand">
 			<a href="/">Private Marketplace</a>
 		</div>
+		<a class="discovery-link" href="/discover">Discover</a>
 		<a class="account-link" href="/account">Account</a>
 		<form action="/preferences/theme" method="post" class="theme-picker" aria-label="Color theme">
 			<button class="btn btn-sm" type="submit" name="theme" value="light" aria-pressed={ strconv.FormatBool(theme == "light") }>Light</button>

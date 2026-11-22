@@ -6,8 +6,8 @@ The implementation agent owns engineering and verification. The repository owner
 | --- | --- | --- | --- |
 | M0 Foundation | Empty repo audited | Fresh configure, migrate up/down, generate, build, format, test, and run web/worker. Local assets, persistent theme, keyboard and no-JS shell across 320/375/768/1024/1440px. | Implemented and tested. [Green CI](https://github.com/x4342/marketplace/actions/runs/45059542225) covers format, vet, race tests, builds, migration up/down/up, fixture repeat, and Chromium light/dark, no-JS, keyboard and HTMX checks at the five target widths. Branch `feature/m0-foundation`. [Issue #1](https://github.com/x4342/marketplace/issues/1) · [PR #2](https://github.com/x4342/marketplace/pull/2). |
 | M1 Identity | M0 | Username-only registration and login, one-use recovery, server sessions, owner checks, CSRF, separate moderator and finance permissions, negative and expiry tests. | Implemented and tested. [Issue #3](https://github.com/x4342/marketplace/issues/3) · [PR #4](https://github.com/x4342/marketplace/pull/4) · [Green CI](https://github.com/x4342/marketplace/actions/runs/45060187899). |
-| M2 Catalog | M1 | Search/filter/storefront/favorite DB flows, mobile one and desktop two columns, visible sort, distinct availability, canonical URL/reset/history, stable paging, no fabricated ratings. | In progress. [Issue #5](https://github.com/x4342/marketplace/issues/5). |
-| M3 Seller lifecycle | M2 | Save Draft at each stage, feedback and validation for upload, preview and publishing, listing ownership, vacation blocks new checkout and preserves existing obligations and snapshots. | Not started |
+| M2 Catalog | M1 | Search/filter/storefront/favorite DB flows, mobile one and desktop two columns, visible sort, distinct availability, canonical URL/reset/history, stable paging, no fabricated ratings. | Discovery gate passed. [PR #6](https://github.com/x4342/marketplace/pull/6) · [Green CI](https://github.com/x4342/marketplace/actions/runs/45062779838) verifies PostgreSQL search, permissions, card favorites, no-JS keyboard drawer, and responsive discovery. Seller-uploaded media is tracked in M3. Review-backed facets await M6 data. |
+| M3 Seller lifecycle | M2 | Save Draft at each stage, feedback and validation for upload, preview and publishing, listing ownership, vacation blocks new checkout and preserves existing obligations and snapshots. | In progress. [Issue #7](https://github.com/x4342/marketplace/issues/7). |
 | M4 Messaging | M1–M3 | Nonbuyers can message, participants only, block/report, unread and notification links, no-JS send, purchase events cannot be forged. | Not started |
 | M5 Orders | M3–M4 | Immutable snapshot before mock quote, physical and digital fulfillment, protected download, exactly one private purchase event including cases without prior chats. | Not started |
 | M6 Reviews | M5 | Eligible buyer, one written 1–5 star review per order, reject unpaid/self/unrelated, derive ratings and insights from legitimate data, protect order details. | Not started |
@@ -69,20 +69,20 @@ Identifiers refer to the V5 blueprint. The engineering owner, prerequisite, revi
 
 ### M2
 
-- [ ] P09 — Not started
+- [ ] P09 — Partial. Review-backed facets await real review data and seller lifecycle work remains in later milestones.
 - [ ] U06 — Not started
-- [ ] D01 — Not started
-- [ ] D02 — Not started
-- [ ] D03 — Not started
-- [ ] D04 — Not started
-- [ ] D05 — Not started
-- [ ] D06 — Not started
-- [ ] D07 — Not started
-- [ ] D08 — Not started
-- [ ] D09 — Not started
-- [ ] D10 — Not started
-- [ ] DB02 — Not started
-- [ ] R01 — Not started
+- [ ] D01 — Partial. Review-backed facets await real review data and seller lifecycle work remains in later milestones.
+- [x] D02 — Discovery slice implemented and verified in branch CI
+- [ ] D03 — Partial. Review-backed facets await real review data and seller lifecycle work remains in later milestones.
+- [ ] D04 — Partial. Review-backed facets await real review data and seller lifecycle work remains in later milestones.
+- [x] D05 — Discovery slice implemented and verified in branch CI
+- [x] D06 — Native mobile drawer, keyboard open/close, focus and always-visible sort verified without JavaScript.
+- [x] D07 — Discovery slice implemented and verified in branch CI
+- [ ] D08 — Partial. Review-backed facets await real review data and seller lifecycle work remains in later milestones.
+- [x] D09 — Discovery slice implemented and verified in branch CI
+- [x] D10 — Discovery slice implemented and verified in branch CI
+- [ ] DB02 — Partial. Review-backed facets await real review data and seller lifecycle work remains in later milestones.
+- [x] R01 — Discovery slice implemented and verified in branch CI
 - [ ] Q02 — Not started
 
 ### M3
