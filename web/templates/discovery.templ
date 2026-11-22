@@ -1,0 +1,332 @@
+package templates
+
+import (
+	"fmt"
+	"net/url"
+	"slices"
+	"strconv"
+
+	"github.com/x4342/marketplace/internal/catalog"
+	"github.com/x4342/marketplace/internal/db"
+)
+
+type DiscoveryData struct {
+	Filters    catalog.Filters
+	Categories []db.CatalogCategoriesRow
+	Listings   []db.DiscoverListingsRow
+	Storefront string
+	CSRF       string
+	ReturnURL  string
+	RateDate   string
+	Total      int64
+	Previous   string
+	Next       string
+}
+
+type Chip struct {
+	Label string
+	URL   string
+}
+
+func (d DiscoveryData) ResetURL() string {
+	params := url.Values{}
+	if d.Filters.Query.SavedOnly {
+		params.Set("saved", "1")
+	}
+	if query := d.Filters.Query.Keyword; query != "" {
+		params.Set("q", query)
+	}
+	if d.Storefront != "" {
+		params.Set("seller", d.Storefront)
+	}
+	return catalog.DiscoverURL(params)
+}
+
+func (d DiscoveryData) Chips() []Chip {
+	labels := map[string]string{"type": "Type", "category": "Category", "seller": "Seller", "condition": "Condition", "region": "Ships to", "delivery": "Delivery", "availability": "Availability", "min": "Minimum price", "max": "Maximum price"}
+	keys := []string{"type", "category", "seller", "condition", "region", "delivery", "availability", "min", "max"}
+	var chips []Chip
+	for _, key := range keys {
+		value := d.Filters.Values.Get(key)
+		if value == "" {
+			continue
+		}
+		chips = append(chips, Chip{Label: labels[key] + " " + d.FacetLabel(key, value), URL: d.Filters.Link(1, key)})
+	}
+	return chips
+}
+
+func (d DiscoveryData) FacetLabel(key, value string) string {
+	options := map[string][]catalog.Option{
+		"type": catalog.TypeOptions, "condition": catalog.ConditionOptions, "region": catalog.RegionOptions,
+		"delivery": catalog.DeliveryOptions, "availability": catalog.AvailabilityOptions,
+	}
+	if index := slices.IndexFunc(options[key], func(option catalog.Option) bool { return option.Value == value }); index >= 0 {
+		return options[key][index].Label
+	}
+	if key == "category" {
+		if index := slices.IndexFunc(d.Categories, func(category db.CatalogCategoriesRow) bool { return category.Slug == value }); index >= 0 {
+			return d.Categories[index].Name
+		}
+	}
+	return value
+}
+
+func available(stock int32, orderable bool) string {
+	if stock > 0 {
+		return "In stock"
+	}
+	if orderable {
+		return "Available to order"
+	}
+	return "Unavailable"
+}
+
+func priceLabel(minor int64, currency string) string {
+	return fmt.Sprintf("%s %d.%02d", currency, minor/100, minor%100)
+}
+
+func listingKind(kind string) string {
+	if kind == "physical" {
+		return "Physical"
+	}
+	return "Digital"
+}
+
+templ Discover(theme string, data DiscoveryData) {
+	@AppShell("Discover", theme) {
+		<div class="discovery">
+			if data.Filters.Query.SavedOnly {
+				@PageHeader("Saved listings", "Browse listings you saved.")
+			} else if data.Storefront != "" {
+				@PageHeader(data.Storefront, "Published listings")
+			} else {
+				@PageHeader("Discover", "Browse physical and digital goods.")
+			}
+			<div class="discovery-layout">
+				<aside class="discovery-rail" aria-label="Filter listings">
+					<h2>Filters</h2>
+					@Filters(data)
+				</aside>
+				<section aria-label="Listing results">
+					<details class="filter-drawer">
+						<summary class="btn">
+							<span class="filter-open-label">Filters</span>
+							<span class="filter-close-label">Close filters</span>
+							if count := len(data.Chips()); count > 0 {
+								{ "(" + strconv.Itoa(count) + ")" }
+							}
+						</summary>
+						@Filters(data)
+					</details>
+					if len(data.Filters.Problems) > 0 {
+						<ul class="alert alert-warning facet-alert" role="status">
+							for _, problem := range data.Filters.Problems {
+								<li>{ problem }</li>
+							}
+						</ul>
+					}
+					<header class="results-header">
+						<p>{ strconv.FormatInt(data.Total, 10) } listings</p>
+						@SortSelect(data)
+					</header>
+					@ActiveChips(data)
+					<p class="fx-note">{ "Cross-currency comparisons use a simulated rate dated " + data.RateDate + "." }</p>
+					if len(data.Listings) == 0 {
+						<section class="card status-card">
+							<h2>No listings found</h2>
+							<p>Change the search or clear the filters to see more items.</p>
+							<a class="btn" href={ templ.SafeURL(data.ResetURL()) }>Reset all</a>
+						</section>
+					} else {
+						<div class="listing-grid">
+							for _, listing := range data.Listings {
+								@ListingCard(listing, data.CSRF, data.ReturnURL)
+							}
+						</div>
+					}
+					if data.Previous != "" || data.Next != "" {
+						<nav aria-label="Listing pages" class="auth-links">
+							if data.Previous != "" {
+								<a href={ templ.SafeURL(data.Previous) }>Previous page</a>
+							}
+							if data.Next != "" {
+								<a href={ templ.SafeURL(data.Next) }>Next page</a>
+							}
+						</nav>
+					}
+				</section>
+			</div>
+		</div>
+	}
+}
+
+templ Filters(data DiscoveryData) {
+	<form class="filter-form" action="/discover" method="get">
+		if data.Filters.Query.SavedOnly {
+			<input type="hidden" name="saved" value="1"/>
+		}
+		<label>Search <input class="input" type="search" name="q" value={ data.Filters.Query.Keyword } maxlength="120"/></label>
+		<label>
+			Category
+			<select class="select" name="category">
+				<option value="">All categories</option>
+				for _, category := range data.Categories {
+					<option value={ category.Slug } selected?={ data.Filters.Query.Category == category.Slug }>
+						if category.Parent != "" {
+							{ "↳ " }
+						}
+						{ category.Name }
+					</option>
+				}
+			</select>
+		</label>
+		@Facet("Listing type", "type", "All types", data.Filters.Query.Kind, catalog.TypeOptions)
+		@Facet("Availability", "availability", "Any availability", data.Filters.Query.Availability, catalog.AvailabilityOptions)
+		@Facet("Compare price in", "currency", "", data.Filters.Query.DisplayCurrency, catalog.CurrencyOptions)
+		<label>Minimum price <input class="input" name="min" inputmode="decimal" value={ data.Filters.Values.Get("min") }/></label>
+		<label>Maximum price <input class="input" name="max" inputmode="decimal" value={ data.Filters.Values.Get("max") }/></label>
+		if data.Filters.Query.Kind != "digital" {
+			@Facet("Condition", "condition", "Any condition", data.Filters.Query.Condition, catalog.ConditionOptions)
+			@Facet("Shipping destination", "region", "Any destination", data.Filters.Query.Region, catalog.RegionOptions)
+		}
+		if data.Filters.Query.Kind != "physical" {
+			@Facet("Delivery", "delivery", "Any delivery method", data.Filters.Query.Delivery, catalog.DeliveryOptions)
+		}
+		if data.Filters.Query.Seller != "" {
+			<input type="hidden" name="seller" value={ data.Filters.Query.Seller }/>
+		}
+		if data.Filters.Values.Get("sort") != "" {
+			<input type="hidden" name="sort" value={ data.Filters.Query.SortMode }/>
+		}
+		<button type="submit" class="btn btn-primary">Apply filters</button>
+		<a href={ templ.SafeURL(data.ResetURL()) }>Reset all</a>
+	</form>
+}
+
+templ Facet(label, name, empty, active string, options []catalog.Option) {
+	<label>
+		{ label }
+		<select class="select" name={ name }>
+			if empty != "" {
+				<option value="">{ empty }</option>
+			}
+			for _, option := range options {
+				<option value={ option.Value } selected?={ active == option.Value }>{ option.Label }</option>
+			}
+		</select>
+	</label>
+}
+
+templ SortSelect(data DiscoveryData) {
+	<form class="results-sort" action="/discover" method="get">
+		for key, values := range data.Filters.Values {
+			if key != "sort" {
+				<input type="hidden" name={ key } value={ values[0] }/>
+			}
+		}
+		<label>
+			Sort by
+			<select class="select" name="sort">
+				if data.Filters.Query.Keyword != "" {
+					<option value="relevance" selected?={ data.Filters.Query.SortMode == "relevance" }>Relevance</option>
+				}
+				for _, option := range catalog.SortOptions {
+					<option value={ option.Value } selected?={ data.Filters.Query.SortMode == option.Value }>{ option.Label }</option>
+				}
+			</select>
+		</label>
+		<button class="btn" type="submit">Sort</button>
+	</form>
+}
+
+templ ActiveChips(data DiscoveryData) {
+	if len(data.Chips()) > 0 || data.Filters.Query.Keyword != "" {
+		<nav class="facet-chips" aria-label="Applied filters">
+			for _, chip := range data.Chips() {
+				<a class="btn btn-sm" href={ templ.SafeURL(chip.URL) } aria-label={ "Remove " + chip.Label }>{ chip.Label } ×</a>
+			}
+			if data.Filters.Query.Keyword != "" {
+				<a class="btn btn-sm" href={ templ.SafeURL(data.Filters.Link(1, "q", "sort")) }>Clear search</a>
+			}
+		</nav>
+	}
+}
+
+templ ListingCard(listing db.DiscoverListingsRow, csrf, returnURL string) {
+	<article class="card listing-card">
+		if listing.HasImage {
+			<img class="listing-image" src={ templ.SafeURL("/listings/" + listing.ID.String() + "/image") } alt="" loading="lazy"/>
+		} else {
+			<div class="listing-placeholder" aria-hidden="true"></div>
+		}
+		<div class="listing-content">
+			<p>{ listingKind(listing.Kind) + " · " + listing.CategoryName }</p>
+			<h2><a href={ templ.SafeURL("/listings/" + listing.ID.String()) }>{ listing.Title }</a></h2>
+			<p class="listing-price">{ priceLabel(listing.PriceMinor, listing.Currency) }</p>
+			if listing.SellerAway {
+				<p>Seller away</p>
+			} else {
+				<p>{ available(listing.Stock, listing.CanBackorder) }</p>
+			}
+			<a href={ templ.SafeURL("/stores/" + listing.SellerName) }>{ listing.SellerName }</a>
+			if csrf != "" {
+				@FavoriteForm(listing.ID.String(), listing.Title, csrf, returnURL, listing.Favorite)
+			}
+		</div>
+	</article>
+}
+
+templ ListingDetail(theme string, listing db.PublicListingRow, regions, csrf string, favorite, canContact bool) {
+	@AppShell(listing.Title, theme) {
+		<nav class="auth-links" aria-label="Catalog navigation"><a href="/discover">Back to discovery</a></nav>
+		@PageHeader(listing.Title, listingKind(listing.Kind)+" · "+listing.CategoryName)
+		<section class="card status-card listing-detail" aria-label="Listing details">
+			if listing.HasImage {
+				<img class="seller-preview-image" src={ templ.SafeURL("/listings/" + listing.ID.String() + "/image") } alt={ listing.Title }/>
+			}
+			<p class="listing-price">{ priceLabel(listing.PriceMinor, listing.Currency) }</p>
+			if listing.SellerAway {
+				<p>Seller away</p>
+			} else {
+				<p>{ available(listing.Stock, listing.CanBackorder) }</p>
+			}
+			<p>{ listing.Description }</p>
+			if listing.Kind == "physical" {
+				<p>{ "Condition " + listing.Condition }</p>
+				<p>{ "Ships to " + regions }</p>
+			} else if listing.DeliveryMode == "automatic" {
+				<p>Automatic download</p>
+			} else {
+				<p>Manual delivery</p>
+			}
+			<p>{ listing.Terms }</p>
+			<a href={ templ.SafeURL("/stores/" + listing.SellerName) }>{ "Visit " + listing.SellerName }</a>
+			if canContact {
+				<form action={ templ.SafeURL("/listings/" + listing.ID.String() + "/conversation") } method="post">
+					<input type="hidden" name="csrf" value={ csrf }/>
+					<button class="btn btn-primary">Message seller</button>
+				</form>
+			}
+			if csrf != "" {
+				@FavoriteForm(listing.ID.String(), listing.Title, csrf, "", favorite)
+			} else {
+				<a href="/login">Sign in to save this listing</a>
+			}
+		</section>
+	}
+}
+
+templ FavoriteForm(id, title, csrf, returnURL string, favorite bool) {
+	<form action={ templ.SafeURL("/listings/" + id + "/favorite") } method="post">
+		<input type="hidden" name="csrf" value={ csrf }/>
+		if returnURL != "" {
+			<input type="hidden" name="return" value={ returnURL }/>
+		}
+		if favorite {
+			<button type="submit" class="btn" name="favorite" value="remove" aria-label={ "Remove " + title + " from saved listings" }>Remove from saved</button>
+		} else {
+			<button type="submit" class="btn" name="favorite" value="save" aria-label={ "Save " + title }>Save listing</button>
+		}
+	</form>
+}

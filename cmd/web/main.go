@@ -14,7 +14,9 @@ import (
 	"github.com/x4342/marketplace/internal/config"
 	"github.com/x4342/marketplace/internal/db"
 	web "github.com/x4342/marketplace/internal/http"
+	"github.com/x4342/marketplace/internal/identity"
 	"github.com/x4342/marketplace/internal/platform"
+	"github.com/x4342/marketplace/internal/seller"
 )
 
 func main() {
@@ -38,7 +40,7 @@ func run(ctx context.Context, log *slog.Logger) error {
 	}
 	defer pool.Close()
 
-	handler, err := web.New(db.New(pool), log)
+	handler, err := web.New(db.New(pool), identity.New(pool), seller.Service{Pool: pool}, log)
 	if err != nil {
 		return err
 	}

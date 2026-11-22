@@ -14,6 +14,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/x4342/marketplace/internal/seller"
 )
 
 type testHeartbeat struct {
@@ -30,7 +31,7 @@ func testHandler(heartbeat testHeartbeat) http.Handler {
 		"app.css":     &fstest.MapFile{Data: []byte("body{}")},
 		"htmx.min.js": &fstest.MapFile{Data: []byte("// htmx")},
 	}
-	return routes(heartbeat, slog.New(slog.NewTextHandler(io.Discard, nil)), assets)
+	return routes(heartbeat, slog.New(slog.NewTextHandler(io.Discard, nil)), assets, nil, seller.Service{})
 }
 
 func TestThemePOSTAndRender(t *testing.T) {

@@ -5,11 +5,11 @@ The implementation agent owns engineering and verification. The repository owner
 | Milestone | Depends on | Acceptance gate | Status and evidence |
 | --- | --- | --- | --- |
 | M0 Foundation | Empty repo audited | Fresh configure, migrate up/down, generate, build, format, test, and run web/worker. Local assets, persistent theme, keyboard and no-JS shell across 320/375/768/1024/1440px. | Implemented and tested. [Green CI](https://github.com/x4342/marketplace/actions/runs/45059542225) covers format, vet, race tests, builds, migration up/down/up, fixture repeat, and Chromium light/dark, no-JS, keyboard and HTMX checks at the five target widths. Branch `feature/m0-foundation`. [Issue #1](https://github.com/x4342/marketplace/issues/1) · [PR #2](https://github.com/x4342/marketplace/pull/2). |
-| M1 Identity | M0 | Username-only registration and login, one-use recovery, server sessions, owner checks, CSRF, separate moderator and finance permissions, negative and expiry tests. | Not started. [Issue #3](https://github.com/x4342/marketplace/issues/3). |
-| M2 Catalog | M1 | Search/filter/storefront/favorite DB flows, mobile one and desktop two columns, visible sort, distinct availability, canonical URL/reset/history, stable paging, no fabricated ratings. | Not started |
-| M3 Seller lifecycle | M2 | Save Draft at each stage, feedback and validation for upload, preview and publishing, listing ownership, vacation blocks new checkout and preserves existing obligations and snapshots. | Not started |
-| M4 Messaging | M1–M3 | Nonbuyers can message, participants only, block/report, unread and notification links, no-JS send, purchase events cannot be forged. | Not started |
-| M5 Orders | M3–M4 | Immutable snapshot before mock quote, physical and digital fulfillment, protected download, exactly one private purchase event including cases without prior chats. | Not started |
+| M1 Identity | M0 | Username-only registration and login, one-use recovery, server sessions, owner checks, CSRF, separate moderator and finance permissions, negative and expiry tests. | Implemented and tested. [Issue #3](https://github.com/x4342/marketplace/issues/3) · [PR #4](https://github.com/x4342/marketplace/pull/4) · [Green CI](https://github.com/x4342/marketplace/actions/runs/45060187899). |
+| M2 Catalog | M1 | Search/filter/storefront/favorite DB flows, mobile one and desktop two columns, visible sort, distinct availability, canonical URL/reset/history, stable paging, no fabricated ratings. | Discovery gate passed. [PR #6](https://github.com/x4342/marketplace/pull/6) · [Green CI](https://github.com/x4342/marketplace/actions/runs/45062779838) verifies PostgreSQL search, permissions, card favorites, no-JS keyboard drawer, and responsive discovery. Seller-uploaded media is tracked in M3. Review-backed facets await M6 data. |
+| M3 Seller lifecycle | M2 | Save Draft at each stage, feedback and validation for upload, preview and publishing, listing ownership, vacation blocks new checkout and preserves existing obligations and snapshots. | Seller lifecycle verified. [PR #8](https://github.com/x4342/marketplace/pull/8) · [Lifecycle CI](https://github.com/x4342/marketplace/actions/runs/45063517152). Final upload progress and recovery passed local Chromium after fixing form endpoint selection. Checkout enforcement for vacation is scheduled in M5. |
+| M4 Messaging | M1–M3 | Nonbuyers can message, participants only, block/report, unread and notification links, no-JS send, purchase events cannot be forged. | Messaging gate verified. [PR #10](https://github.com/x4342/marketplace/pull/10) · [Issue #9](https://github.com/x4342/marketplace/issues/9). Local PostgreSQL and race tests passed. Local Chromium verified mobile no-JS messaging, authenticated HTMX polling, and 320/375/768/1024/1440px layout. Purchase-event payment wiring follows in M5. |
+| M5 Orders | M3–M4 | Immutable snapshot before mock quote, physical and digital fulfillment, protected download, exactly one private purchase event including cases without prior chats. | Not started. [Issue #11](https://github.com/x4342/marketplace/issues/11). |
 | M6 Reviews | M5 | Eligible buyer, one written 1–5 star review per order, reject unpaid/self/unrelated, derive ratings and insights from legitimate data, protect order details. | Not started |
 | M7 Ledger | M5–M6 | Balanced append-only entries, replay-safe settlement, no concurrent overspending, payout authorization distinct from mock settlement. | Not started |
 | M8 Administration | M4–M7 | Reports, appeals and disputes, role-scoped queues, audit evidence, denial releases reservation as applicable, no finance-admin shipping access by default. | Not started |
@@ -59,49 +59,49 @@ Identifiers refer to the V5 blueprint. The engineering owner, prerequisite, revi
 
 ### M1
 
-- [ ] P02 — Not started
-- [ ] C01 — Not started
-- [ ] DB01 — Not started
-- [ ] R03 — Not started
-- [ ] Q01 — Not started
-- [ ] S02 — Not started
-- [ ] S03 — Not started
+- [x] P02 — M1 scope verified
+- [x] C01 — M1 scope verified
+- [x] DB01 — M1 scope verified
+- [x] R03 — M1 scope verified
+- [ ] Q01 — Identity and role boundaries verified. Feature-specific resource checks follow in later milestones.
+- [x] S02 — M1 scope verified
+- [x] S03 — M1 scope verified
 
 ### M2
 
-- [ ] P09 — Not started
+- [ ] P09 — Partial. Review-backed facets await real review data and seller lifecycle work remains in later milestones.
 - [ ] U06 — Not started
-- [ ] D01 — Not started
-- [ ] D02 — Not started
-- [ ] D03 — Not started
-- [ ] D04 — Not started
-- [ ] D05 — Not started
-- [ ] D06 — Not started
-- [ ] D07 — Not started
-- [ ] D08 — Not started
-- [ ] D09 — Not started
-- [ ] D10 — Not started
-- [ ] DB02 — Not started
-- [ ] R01 — Not started
+- [ ] D01 — Partial. Review-backed facets await real review data and seller lifecycle work remains in later milestones.
+- [x] D02 — Discovery slice implemented and verified in branch CI
+- [ ] D03 — Partial. Review-backed facets await real review data and seller lifecycle work remains in later milestones.
+- [ ] D04 — Partial. Review-backed facets await real review data and seller lifecycle work remains in later milestones.
+- [x] D05 — Discovery slice implemented and verified in branch CI
+- [x] D06 — Native mobile drawer, keyboard open/close, focus and always-visible sort verified without JavaScript.
+- [x] D07 — Discovery slice implemented and verified in branch CI
+- [ ] D08 — Partial. Review-backed facets await real review data and seller lifecycle work remains in later milestones.
+- [x] D09 — Discovery slice implemented and verified in branch CI
+- [x] D10 — Discovery slice implemented and verified in branch CI
+- [ ] DB02 — Partial. Review-backed facets await real review data and seller lifecycle work remains in later milestones.
+- [x] R01 — Discovery slice implemented and verified in branch CI
 - [ ] Q02 — Not started
 
 ### M3
 
 - [ ] P06 — Not started
-- [ ] C02 — Not started
-- [ ] C03 — Not started
-- [ ] R02 — Not started
+- [x] C02 — Seller lifecycle and uploads verified
+- [ ] C03 — Seller labels, management, and vacation visibility verified. Order and analytics integrations follow.
+- [x] R02 — Published details and seller forms verified
 
 ### M4
 
-- [ ] P04 — Not started
+- [ ] P04 — Listing contact verified. Payment-triggered system events await M5.
 - [ ] T04 — Not started
-- [ ] C04 — Not started
-- [ ] C05 — Not started
-- [ ] C06 — Not started
-- [ ] C07 — Not started
-- [ ] DB03 — Not started
-- [ ] R04 — Not started
+- [x] C04 — Private messaging scope implemented and verified
+- [ ] C05 — Immutable schema and private renderer wired. Verified-payment creation follows in M5.
+- [x] C06 — Private messaging scope implemented and verified
+- [ ] C07 — Authorized message deep links verified. Other notice types follow their owning milestones.
+- [x] DB03 — Private messaging scope implemented and verified
+- [x] R04 — Private messaging scope implemented and verified
 
 ### M5
 

@@ -50,3 +50,43 @@ The suite checks local assets, readiness, heartbeat changes, HTMX refresh, no-Ja
 `.env.example` and Compose contain local fixture credentials. Keep real credentials and private data out of source, fixtures, logs, and build artifacts. The local HTTP listener and the Compose host port bind to loopback. Runtime logs report process and service failures without request bodies, cookies, or driver errors.
 
 See the [milestone tracker](docs/implementation-plan.md), [engineering decisions](docs/decisions.md), and [owner decisions](docs/open-decisions.md).
+
+## Local accounts
+
+Use `/register` with a username and password, then save the recovery codes displayed after enrollment. The password recovery form uses one code, invalidates existing sessions and codes, and shows a new set. Account and recovery routes work as standard HTML forms.
+
+For the M1 PostgreSQL tests, point the explicit test variable at an isolated development database after migration.
+
+```sh
+MARKETPLACE_IDENTITY_TEST_DATABASE_URL="$DATABASE_URL" go test -race ./internal/http -run TestIdentityPostgres -v
+```
+
+For development role checks, use a test database and assign `moderator` or `finance_admin` to a known fixture account in `role_assignments`. Both roles are checked on each protected request. Production role provisioning and administrative queues are later work.
+
+## Local discovery
+
+Run `make fixtures` after migration to load the catalog examples. Open `/discover` for search, category and availability filters, price sorting and published storefronts. Sign in to save a listing from its detail page and find it later under Saved listings.
+
+Price comparisons use the dated simulated USD/EUR rate in migration 00003. Listing prices remain in their original currencies. Review-backed sorting and filtering require legitimate review data. Listing image uploads and seller listing management belong to M3.
+
+## Seller listing lifecycle
+
+Sign in and open **Sell** from your account. Start a private draft, save partial details, preview at desktop and mobile widths, and publish when the required fields are complete. Editing a published listing creates an independent draft. Pausing or removing it hides the listing and its media from the public catalog.
+
+Uploads accept JPEG and PNG up to 3 MB and 2048 pixels per side. The server decodes and re-encodes the image as JPEG. Vacation mode displays an away status on the seller’s published listings. Checkout enforcement belongs to the later order workflow.
+
+Run the seller integration tests against a migrated disposable database with catalog fixtures.
+
+```sh
+MARKETPLACE_SELLER_TEST_DATABASE_URL="$DATABASE_URL" go test -race ./internal/http -run TestSellerPostgres -v
+```
+
+## Private listing messages
+
+Sign in as a buyer and choose **Message seller** on a published listing. Open **Messages** and **Notifications** from your account. Conversations and notification links are restricted to their participants and recipients respectively. Messages are plain text. The standard HTML forms support sending, marking history as read, blocking, and reporting with JavaScript disabled.
+
+Blocking applies to the current conversation. Reports are persisted for the later moderation queue. The purchase-event renderer and append-only schema are present for verified checkout in M5.
+
+```sh
+MARKETPLACE_MESSAGES_TEST_DATABASE_URL="$DATABASE_URL" go test -race ./internal/http -run TestMessagesPostgres -v
+```
