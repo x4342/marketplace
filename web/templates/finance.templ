@@ -1,0 +1,273 @@
+package templates
+
+import (
+	"fmt"
+	"time"
+
+	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/x4342/marketplace/internal/db"
+)
+
+type EarningsData struct {
+	Balances []db.SellerBalancesRow
+	Payouts  []db.SellerPayout
+	CSRF     string
+	Key      string
+	Page     int32
+	More     bool
+	Problem  string
+	Currency string
+	Amount   string
+}
+
+type PayoutData struct {
+	ID             pgtype.UUID
+	State          string
+	Currency       string
+	Amount         int64
+	Units          int64
+	Attempts       int32
+	Admin          bool
+	Seller         string
+	Available      int64
+	Held           int64
+	CSRF           string
+	Updated        bool
+	History        []db.PayoutActivityRow
+	Reconciliation db.ReconciliationItem
+}
+
+var sellerBuckets = []struct{ key, label string }{
+	{"pending", "Pending"}, {"available", "Available"}, {"held", "Held"}, {"reserved", "Reserved for payout"}, {"withdrawn", "Withdrawn history"},
+}
+
+func bucketValue(rows []db.SellerBalancesRow, code, bucket string) int64 {
+	for _, row := range rows {
+		if row.Denomination == code && row.Bucket == bucket {
+			return row.Balance
+		}
+	}
+	return 0
+}
+
+func payoutState(state string) string {
+	switch state {
+	case "reserved":
+		return "Reserved"
+	case "under_review":
+		return "Under review"
+	case "approved":
+		return "Approved"
+	case "denied":
+		return "Denied"
+	case "processing":
+		return "Processing"
+	case "confirmed":
+		return "Confirmed"
+	case "reconciled":
+		return "Reconciled"
+	case "failed":
+		return "Failed"
+	case "stalled":
+		return "Stalled"
+	default:
+		return "Status unavailable"
+	}
+}
+
+templ Earnings(theme string, data EarningsData) {
+	@AppShell("Earnings", theme) {
+		@PageHeader("Earnings", "Simulated seller balances and payouts.")
+		<div class="seller-panel commerce-panel">
+			@BalanceSummary(data.Balances)
+			<section class="card status-card seller-panel" aria-label="Request simulated payout">
+				<h2>Request simulated payout</h2>
+				<p>Available earnings are reserved until the request is denied or settled. A finance administrator must approve each request.</p>
+				if data.Problem!="" {
+					<p class="alert alert-error" role="alert">{ data.Problem }</p>
+				}
+				<form class="seller-form seller-panel" method="post" action="/payouts">
+					<input type="hidden" name="csrf" value={ data.CSRF }/>
+					<input type="hidden" name="key" value={ data.Key }/>
+					<div class="seller-panel">
+						<label for="payout-currency">Currency</label>
+						<select class="select" id="payout-currency" name="currency"><option value="USD">USD</option><option value="EUR" selected?={ data.Currency=="EUR" }>EUR</option></select>
+					</div>
+					<label>Amount <input class="input" name="amount" value={ data.Amount } inputmode="decimal" maxlength="12" required/></label>
+					<div class="seller-panel">
+						<label for="payout-scenario">Simulated provider outcome</label>
+						<select class="select" id="payout-scenario" name="scenario">
+							<option value="success">Confirm normally</option><option value="fail_once">Fail on the first attempt</option><option value="stall_once">Stall on the first attempt</option>
+						</select>
+					</div>
+					<button class="btn btn-primary">Request payout</button>
+				</form>
+			</section>
+			<section class="seller-panel" aria-label="Payout history">
+				<h2>Payout history</h2>
+				if len(data.Payouts)==0 {
+					<p>No payouts yet.</p>
+				}
+				for _, payout := range data.Payouts {
+					<article class="card status-card seller-panel">
+						<a class="seller-link" href={ templ.SafeURL("/payouts/" + payout.ID.String()) }>{ priceLabel(payout.AmountMinor,payout.Currency) }</a>
+						<p>{ payoutState(payout.State) }</p>
+						<time datetime={ payout.CreatedAt.Time.UTC().Format(time.RFC3339) }>{ payout.CreatedAt.Time.UTC().Format("2 Jan 2006, 15:04 UTC") }</time>
+					</article>
+				}
+				@MessagePages("/earnings", data.Page, data.More)
+			</section>
+		</div>
+	}
+}
+
+templ BalanceSummary(rows []db.SellerBalancesRow) {
+	<div class="finance-balances">
+		for _, code := range []string{"USD","EUR"} {
+			<section class="card status-card seller-panel" aria-label={ code + " balance" }>
+				<h2>{ code + " balance" }</h2>
+				<dl class="review-counts">
+					for _, bucket := range sellerBuckets {
+						<div><dt>{ bucket.label }</dt><dd>{ priceLabel(bucketValue(rows,code,bucket.key),code) }</dd></div>
+					}
+				</dl>
+			</section>
+		}
+	</div>
+}
+
+templ PayoutDetail(theme string, data PayoutData) {
+	@AppShell("Simulated payout", theme) {
+		@PageHeader("Simulated payout", payoutState(data.State))
+		<div class="seller-panel commerce-panel">
+			if data.Admin {
+				<a class="seller-link" href="/admin/payouts">Back to payout review</a>
+			} else {
+				<a class="seller-link" href="/earnings">Back to earnings</a>
+			}
+			if data.Updated {
+				<p class="alert alert-success" role="status">Payout updated.</p>
+			}
+			<section class="card status-card seller-panel" aria-label="Payout details">
+				<h2>{ priceLabel(data.Amount,data.Currency) }</h2>
+				<p>{ fmt.Sprintf("%d TEST units · simulation network",data.Units) }</p>
+				<p>{ fmt.Sprintf("Processing attempts: %d",data.Attempts) }</p>
+				if data.Admin {
+					<p>{ "Seller " + data.Seller }</p>
+					<p>{ "Available " + priceLabel(data.Available,data.Currency) }</p>
+					<p>{ "Held " + priceLabel(data.Held,data.Currency) }</p>
+				}
+				if data.State=="approved" {
+					<p>Finance approval recorded. The simulated provider still needs to confirm settlement.</p>
+				}
+				if data.State=="stalled" || data.State=="failed" {
+					<p>The reservation remains in place while finance decides whether to retry or deny.</p>
+				}
+				if data.Reconciliation.PayoutID.Valid {
+					<p>{ "Provider reference " + data.Reconciliation.ProviderRef }</p>
+					<p>{ fmt.Sprintf("Confirmed provider units: %d TEST",data.Reconciliation.SettledUnits) }</p>
+				}
+			</section>
+			if data.Admin && data.State!="denied" && data.State!="reconciled" {
+				@PayoutActionForm(data)
+			}
+			<section class="card status-card seller-panel" aria-label="Payout activity">
+				<h2>Payout activity</h2>
+				<ol class="commerce-timeline">
+					for _, entry := range data.History {
+						<li>
+							<strong>{ payoutState(entry.Action) }</strong>
+							<p class="commerce-preserve">{ entry.Reason }</p>
+							<time datetime={ entry.CreatedAt.Time.UTC().Format(time.RFC3339) }>{ entry.CreatedAt.Time.UTC().Format("2 Jan 2006, 15:04 UTC") }</time>
+						</li>
+					}
+				</ol>
+			</section>
+		</div>
+	}
+}
+
+templ PayoutActionForm(data PayoutData) {
+	<form class="card status-card seller-panel seller-form" method="post" action={ templ.SafeURL("/admin/payouts/" + data.ID.String() + "/action") }>
+		<input type="hidden" name="csrf" value={ data.CSRF }/>
+		<label>Reason shown to the seller <textarea class="textarea" name="reason" rows="3" maxlength="1000" required></textarea></label>
+		<div class="seller-actions">
+			switch data.State {
+				case "reserved":
+					<button class="btn" name="action" value="review">Start review</button>
+				case "under_review":
+					<button class="btn btn-primary" name="action" value="approve">Approve reservation</button>
+					<button class="btn" name="action" value="deny">Deny and release funds</button>
+				case "approved":
+					<button class="btn" name="action" value="process">Start simulated processing</button>
+				case "processing":
+					<button class="btn" name="action" value="observe">Check provider outcome</button>
+				case "failed","stalled":
+					<button class="btn" name="action" value="process">Retry simulated processing</button>
+					<button class="btn" name="action" value="deny">Deny and release funds</button>
+				case "confirmed":
+					<button class="btn" name="action" value="reconcile">Reconcile confirmed payout</button>
+			}
+		</div>
+	</form>
+}
+
+templ FinancePayoutQueue(theme string, rows []db.FinancePayoutQueueRow, page int32, more bool) {
+	@AppShell("Payout review", theme) {
+		@PageHeader("Payout review", "Review reservations and reconcile confirmed simulated payouts.")
+		<div class="seller-panel commerce-panel">
+			<a class="seller-link" href="/admin/payment-adjustments">Simulated payment adjustments</a>
+			if len(rows)==0 {
+				<p>No active payout requests.</p>
+			}
+			for _, row := range rows {
+				<article class="card status-card seller-panel">
+					<a class="seller-link" href={ templ.SafeURL("/admin/payouts/" + row.ID.String()) }>{ row.Username+" · "+priceLabel(row.AmountMinor,row.Currency) }</a>
+					<p>{ payoutState(row.State) }</p>
+				</article>
+			}
+			@MessagePages("/admin/payouts", page, more)
+		</div>
+	}
+}
+
+templ PaymentAdjustments(theme string, rows []db.FinanceOrderQueueRow, csrf string, page int32, more, updated bool) {
+	@AppShell("Simulated payment adjustments", theme) {
+		@PageHeader("Simulated payment adjustments", "Post a full refund or simulated chain reversal with compensating journal entries.")
+		<div class="seller-panel commerce-panel">
+			<a class="seller-link" href="/admin/payouts">Back to payout review</a>
+			if updated {
+				<p class="alert alert-success" role="status">Payment adjustment recorded.</p>
+			}
+			if len(rows)==0 {
+				<p>No eligible orders.</p>
+			}
+			for _, row := range rows {
+				<article class="card status-card seller-panel">
+					<h2>{ row.Title }</h2>
+					<p>{ priceLabel(row.PriceMinor,row.Currency)+" · "+stateLabel(row.State) }</p>
+					<p>{ "Order "+row.ID.String() }</p>
+					<details>
+						<summary class="btn">Review adjustment</summary>
+						<form class="seller-form seller-panel" method="post" action={ templ.SafeURL("/admin/payment-adjustments/" + row.ID.String()) }>
+							<input type="hidden" name="csrf" value={ csrf }/>
+							<label>Reason shown on the order <textarea class="textarea" name="reason" rows="3" maxlength="1000" required></textarea></label>
+							<div class="seller-actions">
+								<button class="btn" name="action" value="refund">Confirm simulated refund</button>
+								<button class="btn" name="action" value="reversal">Confirm simulated reversal</button>
+							</div>
+						</form>
+					</details>
+				</article>
+			}
+			@MessagePages("/admin/payment-adjustments", page, more)
+		</div>
+	}
+}
+
+templ PayoutNotice(notice db.UserPayoutNoticesRow) {
+	<article class="card status-card seller-panel">
+		<a class="seller-link" href={ templ.SafeURL("/payouts/" + notice.ID.String()) }>{ "Payout · "+payoutState(notice.Action) }</a>
+		<time datetime={ notice.CreatedAt.Time.UTC().Format(time.RFC3339) }>{ notice.CreatedAt.Time.UTC().Format("2 Jan, 15:04 UTC") }</time>
+	</article>
+}

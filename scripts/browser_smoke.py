@@ -310,6 +310,19 @@ def verify_orders(browser, base_url):
     expect(merchant.get_by_role("heading", name="Seller insights")).to_be_visible()
     expect(merchant.get_by_text("USD 12.50", exact=True)).to_be_visible()
 
+    merchant.goto(base_url + "/earnings")
+    balance = merchant.get_by_role("region", name="USD balance")
+    expect(balance.get_by_text("USD 11.87", exact=True)).to_be_visible()
+    for width in (320, 375, 768, 1024, 1440):
+        merchant.set_viewport_size({"width": width, "height": 900})
+        assert merchant.locator("html").evaluate("(root) => root.scrollWidth") <= width
+    merchant.set_viewport_size(settings["viewport"])
+    merchant.screenshot(path="bin/smoke/seller-earnings-375.png")
+    merchant.get_by_label("Amount", exact=True).fill("5.00")
+    merchant.get_by_role("button", name="Request payout").click()
+    expect(merchant.get_by_text("Reserved", exact=True).first).to_be_visible()
+    expect(merchant.get_by_text("50000 TEST units · simulation network")).to_be_visible()
+
     buyer.goto(base_url + "/listings/3cd38877-43d7-403a-94b4-450456bde7ce")
     buyer.get_by_role("link", name="Simulated checkout").click()
     buyer.get_by_role("button", name="Create order and quote").click()

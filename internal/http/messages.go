@@ -263,7 +263,12 @@ func (p messagePages) notifications(w http.ResponseWriter, r *http.Request) {
 		p.failure(w, r, err)
 		return
 	}
-	p.render(w, r, http.StatusOK, templates.Notifications(theme(r), rows, orderNotices, reviewNotices, page))
+	payoutNotices, err := p.queries.UserPayoutNotices(r.Context(), db.UserPayoutNoticesParams{SellerID: session.ID, PageOffset: 30 * (page - 1)})
+	if err != nil {
+		p.failure(w, r, err)
+		return
+	}
+	p.render(w, r, http.StatusOK, templates.Notifications(theme(r), rows, orderNotices, reviewNotices, payoutNotices, page))
 }
 
 func (p messagePages) notification(w http.ResponseWriter, r *http.Request) {

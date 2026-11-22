@@ -42,13 +42,16 @@ templ Inbox(theme string, items []db.InboxRow, page int32, unread int64) {
 	}
 }
 
-templ Notifications(theme string, items []db.MessageNotificationsRow, orderNotices []db.UserOrderNotificationsRow, reviewNotices []db.ReviewNoticesRow, page int32) {
+templ Notifications(theme string, items []db.MessageNotificationsRow, orderNotices []db.UserOrderNotificationsRow, reviewNotices []db.ReviewNoticesRow, payoutNotices []db.UserPayoutNoticesRow, page int32) {
 	@AppShell("Notifications", theme) {
 		@PageHeader("Notifications", "Updates to your conversations and orders.")
 		<nav class="auth-links" aria-label="Inbox navigation"><a href="/messages">Messages</a></nav>
 		<div class="seller-panel">
 			if len(items) == 0 && len(orderNotices) == 0 && len(reviewNotices)==0 {
 				<p>No notifications on this page.</p>
+			}
+			for _, notice := range payoutNotices {
+				@PayoutNotice(notice)
 			}
 			for _, notice := range reviewNotices {
 				@ReviewNotice(notice)
@@ -66,7 +69,7 @@ templ Notifications(theme string, items []db.MessageNotificationsRow, orderNotic
 				</article>
 			}
 		</div>
-		@MessagePages("/notifications", page, len(items) == 30 || len(orderNotices) == 30 || len(reviewNotices) == 30)
+		@MessagePages("/notifications", page, len(items) == 30 || len(orderNotices) == 30 || len(reviewNotices) == 30 || len(payoutNotices) == 30)
 	}
 }
 

@@ -72,6 +72,7 @@ templ Account(theme, username, csrf string, moderator, finance bool) {
 		<section class="card status-card auth-form" aria-label="Account actions">
 			<a class="btn" href="/sell">Sell</a>
 			<a class="btn" href="/orders">Orders</a>
+			<a class="btn" href="/earnings">Earnings</a>
 			<a class="btn" href="/messages">Messages</a>
 			<a class="btn" href="/notifications">Notifications</a>
 			<a class="btn" href="/discover?saved=1">Saved listings</a>
@@ -81,6 +82,7 @@ templ Account(theme, username, csrf string, moderator, finance bool) {
 			}
 			if finance {
 				<a class="btn" href="/admin/finance">Finance access</a>
+				<a class="btn" href="/admin/payouts">Payout review</a>
 			}
 			<form action="/logout" method="post">
 				<input type="hidden" name="csrf" value={ csrf }/>

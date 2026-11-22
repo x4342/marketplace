@@ -118,3 +118,17 @@ MARKETPLACE_REVIEWS_TEST_DATABASE_URL="$DATABASE_URL" go test -race ./internal/h
 ```
 
 Use a disposable, migrated and seeded database. Migration 00007 refuses rollback once verified review history exists.
+
+## Simulated earnings and payouts
+
+Verified checkout posts a balanced accounting-currency journal and a separate TEST-unit payment journal. Seller earnings accrue as pending, move to available after buyer receipt in the sandbox, and move to held when a fulfillment problem is reported. The platform commission uses the proposed 5% merchandise-subtotal basis with integer half-up rounding. Views, gross sales, and ledger balances represent different measurements.
+
+Open **Account → Earnings** to review currency-specific balances or request a simulated payout. The reservation is atomic. A different account with the `finance_admin` role can review, approve, process, check the deterministic provider, and reconcile from **Account → Payout review**. Approval records permission to proceed. Provider confirmation moves reserved funds to withdrawn history. Failed or stalled attempts keep the reservation until a deliberate retry or denial. Denial returns the reserved funds to available.
+
+Finance can record a full simulated refund or chain reversal through **Simulated payment adjustments**. Each posts compensating journals and leaves the original entries intact. If the corresponding seller bucket cannot cover the adjustment, it fails atomically for manual follow-up. Live refund, hold, release and shortfall policies remain open. No wallet address is collected. All finance rates, amounts and provider outcomes are synthetic sandbox inputs.
+
+Migration 00008 backfills existing verified orders. It can roll back an empty financial schema and refuses to remove posted financial history. Verify on an isolated database:
+
+```sh
+MARKETPLACE_FINANCE_TEST_DATABASE_URL="$DATABASE_URL" go test -race ./internal/http -run TestFinancePostgres -v
+```
