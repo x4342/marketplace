@@ -111,7 +111,7 @@ func TestReviewsPostgres(t *testing.T) {
 	}
 	private := "/reviews/" + rid.String()
 	body := outsider.call("GET", public, nil, 200).Body.String()
-	for _, want := range []string{"Verified purchase", "Verified &lt;strong&gt;fixture&lt;/strong&gt;", "average shown after 3", "Item rating distribution"} {
+	for _, want := range []string{"Verified purchase", "Verified &lt;strong&gt;fixture&lt;/strong&gt;", "average shown after 3", "Item rating distribution", "Reviews for this item: 1"} {
 		if !strings.Contains(body, want) {
 			t.Fatalf("public page missing %q", want)
 		}

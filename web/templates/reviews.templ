@@ -19,6 +19,23 @@ type ListingReviewData struct {
 	Reported bool
 }
 
+func (d ListingReviewData) Total() int64 {
+	var total int64
+	for _, bucket := range d.Counts {
+		total += bucket.Total
+	}
+	return total
+}
+
+func (d ListingReviewData) Count(stars int16) int64 {
+	for _, bucket := range d.Counts {
+		if bucket.Stars == stars {
+			return bucket.Total
+		}
+	}
+	return 0
+}
+
 type ReviewCase struct {
 	Review  db.PendingReviewCasesRow
 	Reasons []db.ReviewCaseReasonsRow
@@ -35,16 +52,19 @@ templ OrderReview(d OrderData) {
 		} else if d.Review.Eligible {
 			<form method="post" action={ templ.SafeURL(d.Path() + "/reviews") } class="seller-form seller-panel">
 				<input type="hidden" name="csrf" value={ d.CSRF }/>
-				<label>
-					Rating
-					<select class="select" name="stars" required>
+				<div class="seller-panel">
+					<label for="review-stars">Rating</label>
+					<select class="select" id="review-stars" name="stars" required>
 						<option value="">Choose a rating</option>
 						for _, rating := range []int{5,4,3,2,1} {
 							<option value={ strconv.Itoa(rating) }>{ starText(int16(rating)) }</option>
 						}
 					</select>
-				</label>
-				<label>Written review <textarea class="textarea" name="body" required maxlength="2000" rows="4"></textarea></label>
+				</div>
+				<div class="seller-panel">
+					<label for="review-body">Written review</label>
+					<textarea class="textarea" id="review-body" name="body" required maxlength="2000" rows="4"></textarea>
+				</div>
 				<p>Your review and the item’s title at purchase will be public. Keep personal and order details out of the text.</p>
 				<button class="btn btn-primary">Submit review</button>
 			</form>
