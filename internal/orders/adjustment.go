@@ -2,6 +2,8 @@ package orders
 
 import (
 	"context"
+	"errors"
+	"github.com/jackc/pgx/v5"
 	"strings"
 
 	"github.com/jackc/pgx/v5/pgtype"
@@ -33,6 +35,11 @@ func (s Service) Adjust(ctx context.Context, admin, id pgtype.UUID, kind, reason
 		if order.State == "refunded" {
 			return nil
 		}
+		if _, err := q.OrderDispute(ctx, id); err == nil {
+			return finance.ErrState
+		} else if !errors.Is(err, pgx.ErrNoRows) {
+			return err
+		}
 		if err := finance.RefundSale(ctx, q, order, kind); err != nil {
 			return err
 		}
@@ -40,6 +47,9 @@ func (s Service) Adjust(ctx context.Context, admin, id pgtype.UUID, kind, reason
 		if kind == "reversal" {
 			label = "Simulated chain reversal"
 		}
-		return transition(ctx, q, id, admin, "refunded", label+" · "+strings.TrimSpace(reason))
+		if err := transition(ctx, q, id, admin, "refunded", label); err != nil {
+			return err
+		}
+		return q.PostAdminAudit(ctx, db.PostAdminAuditParams{ActorID: admin, Area: "payment", SubjectID: id, Action: kind, Reason: strings.TrimSpace(reason)})
 	})
 }

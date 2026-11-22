@@ -149,6 +149,12 @@ func (p orderPages) detail(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	data.DisputeID, err = p.queries.OrderDispute(r.Context(), id)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		p.failure(w, r, err)
+		return
+	}
+
 	if data.Buyer {
 		data.Review, err = p.queries.BuyerReviewStatus(r.Context(), db.BuyerReviewStatusParams{Actor: session.ID, OrderID: id})
 		if err != nil {
@@ -173,6 +179,12 @@ func (p orderPages) action(w http.ResponseWriter, r *http.Request) {
 		err = p.service.EnsureQuote(r.Context(), id, session.ID)
 	case "simulate":
 		err = p.service.SimulatePayment(r.Context(), id, session.ID)
+	case "problem":
+		details := strings.TrimSpace(r.PostForm.Get("details"))
+		if r.PostForm.Get("category") != "" {
+			details = r.PostForm.Get("category") + "\n" + details
+		}
+		err = p.service.Act(r.Context(), id, session.ID, action, details)
 	case "cancel":
 		err = p.service.Cancel(r.Context(), id, session.ID)
 	default:

@@ -70,3 +70,10 @@ func post(ctx context.Context, q *db.Queries, key string, id, owner pgtype.UUID,
 	}
 	return err
 }
+
+// ReleaseDisputedSale moves the sandbox net proceeds out of the held bucket.
+func ReleaseDisputedSale(ctx context.Context, q *db.Queries, order db.LockOrderRow) error {
+	net := order.PriceMinor - Commission(order.PriceMinor)
+	return post(ctx, q, "dispute-release", order.ID, order.SellerID, order.Currency,
+		[]string{"held", "available"}, []int64{-net, net})
+}

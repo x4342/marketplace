@@ -97,7 +97,7 @@ Sign in as a buyer and choose **Simulated checkout** on an available listing. Ph
 
 Sellers can dispatch physical orders with an optional test tracking reference or submit private manual delivery text. Automatic listings need a plain UTF-8 test document set under **Sell**. Paid buyers can download the version saved at checkout. For a seeded download, use **Workshop inventory sheets** after running `make fixtures`.
 
-The sandbox uses one unit per order, a 20-minute mock quote, 100 test units per accounting cent, and a 48-hour display deadline for manual delivery. Automatic files are limited to 64 KiB of plain UTF-8 for this simulation. Live assets, payment confirmation, retention, expiry and dispute terms remain owner decisions. Buyer problem reports reach the order timeline. Full dispute review follows in M8.
+The sandbox uses one unit per order, a 20-minute mock quote, 100 test units per accounting cent, and a 48-hour display deadline for manual delivery. Automatic files are limited to 64 KiB of plain UTF-8 for this simulation. Live assets, payment confirmation, retention, expiry and dispute terms remain owner decisions. Buyer problem reports open a dispute linked in the order timeline.
 
 ```sh
 MARKETPLACE_ORDERS_TEST_DATABASE_URL="$DATABASE_URL" go test -race ./internal/http -run TestOrdersPostgres -v
@@ -109,7 +109,7 @@ Migration 00006 rolls back an empty order schema. Once order history exists, use
 
 Once a buyer confirms receipt on a paid order, they can submit one written review with a 1–5 star rating from the order page. Public reviews show the item title at purchase, star count, date and verified purchase status. Review author accounts and private order details are excluded from the public view. Seller averages and rating thresholds use at least three visible verified reviews. Listing and seller summaries exclude hidden reviews. A later refund adds a label to an existing public review.
 
-Signed-in users can report a visible review. Content moderators decide review reports at **Account → Review moderation**, record a reason, and can uphold or reverse a hidden review when its author appeals. Notifications lead to the participant-only review page. The moderation queue covers review cases. Wider content moderation belongs to M8.
+Signed-in users can report a visible review. Content moderators decide review reports at **Account → Review moderation**, record a reason, and can uphold or reverse a hidden review when its author appeals. Notifications lead to the participant-only review page. Review moderation has its own queue. Listing, seller, and chat reports appear in Content moderation.
 
 **Sell → Seller insights** shows the account’s aggregate listing page loads, orders, completed orders and gross simulated sales by original currency. Page loads are approximate, with no visitor identifiers stored. Gross sales exclude refunds and use completed verified orders before fees.
 
@@ -123,12 +123,24 @@ Use a disposable, migrated and seeded database. Migration 00007 refuses rollback
 
 Verified checkout posts a balanced accounting-currency journal and a separate TEST-unit payment journal. Seller earnings accrue as pending, move to available after buyer receipt in the sandbox, and move to held when a fulfillment problem is reported. The platform commission uses the proposed 5% merchandise-subtotal basis with integer half-up rounding. Views, gross sales, and ledger balances represent different measurements.
 
-Open **Account → Earnings** to review currency-specific balances or request a simulated payout. The reservation is atomic. A different account with the `finance_admin` role can review, approve, process, check the deterministic provider, and reconcile from **Account → Payout review**. Approval records permission to proceed. Provider confirmation moves reserved funds to withdrawn history. Failed or stalled attempts keep the reservation until a deliberate retry or denial. Denial returns the reserved funds to available.
+Open **Account → Earnings** to review currency-specific balances or request a simulated payout. The reservation is atomic. A different account with the `finance_admin` role can review, approve, process, check the deterministic provider, and reconcile from **Account → Payout review**. Approval records permission to proceed. Provider confirmation moves reserved funds to withdrawn history. Failed or stalled attempts keep the reservation until a deliberate retry or denial. Denial returns reserved funds to available unless finance has placed a separate payout hold. In that case, denial moves the reservation to held until finance lifts the hold.
 
-Finance can record a full simulated refund or chain reversal through **Simulated payment adjustments**. Each posts compensating journals and leaves the original entries intact. If the corresponding seller bucket cannot cover the adjustment, it fails atomically for manual follow-up. Live refund, hold, release and shortfall policies remain open. No wallet address is collected. All finance rates, amounts and provider outcomes are synthetic sandbox inputs.
+Finance can record a full simulated refund or chain reversal for orders outside the dispute workflow through **Simulated payment adjustments**. Each posts compensating journals and leaves the original entries intact. If the corresponding seller bucket cannot cover the adjustment, it fails atomically for manual follow-up. Live refund, hold, release and shortfall policies remain open. No wallet address is collected. All finance rates, amounts and provider outcomes are synthetic sandbox inputs.
 
 Migration 00008 backfills existing verified orders. It can roll back an empty financial schema and refuses to remove posted financial history. Run the integration test on an isolated database.
 
 ```sh
 MARKETPLACE_FINANCE_TEST_DATABASE_URL="$DATABASE_URL" go test -race ./internal/http -run TestFinancePostgres -v
+```
+
+## Content moderation and order disputes
+
+Buyers can select a complaint category and open a dispute from a paid order. Buyer and seller can submit text responses and evidence while the case is open or held. The case shows the item snapshot and whether dispatch, manual delivery, or download access were recorded. Shipping addresses, tracking references, and private fulfillment payloads stay on their original participant-only surfaces. An independent content moderator can explicitly maintain the hold, release seller earnings, or post a simulated refund. Release and refund use compensating journals and update both participants' order notices in the same transaction. Each participant can appeal a final decision. A different moderator may uphold it or refer it for further review. Referral leaves the posted outcome in effect pending an approved appeal policy.
+
+Signed-in users can report a listing or seller from the listing page and report a conversation from the thread. **Account → Content reports** gives moderators a filterable queue. It shows the chat report and its reason without access to the conversation transcript. A moderator can dismiss a report, delist an item, restrict a conversation, or restrict an account from new checkout, publishing, and sending messages while allowing existing fulfillment. Affected users can appeal through **Account → Moderation decisions**. When a listing restriction is reversed, its seller can review it and resume publication.
+
+Moderator and finance queues require separate role assignments. Finance staff can review payouts and place a separate hold on reserved funds. **Account → Administrative audit** shows permitted actions, reasons, actors, and timestamps. Moderator access to a restricted dispute record or chat report is recorded. Migration 00009 reconciles existing chat reports and administrative action histories. It can roll back an empty M8 schema and refuses rollback after dispute or moderation history exists. Use a backup restore or a forward migration for a populated installation.
+
+```sh
+MARKETPLACE_ADMIN_TEST_DATABASE_URL="$DATABASE_URL" go test -race ./internal/http -run TestAdminPostgres -v
 ```

@@ -106,7 +106,7 @@ func (p financePages) sellerDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	p.detail(w, r, templates.PayoutData{ID: row.ID, State: row.State, Currency: row.Currency, Amount: row.AmountMinor, Units: row.TestUnits,
-		Attempts: row.Attempts, Updated: r.URL.Query().Get("created") == "1"})
+		Attempts: row.Attempts, HoldActive: row.HoldActive, Updated: r.URL.Query().Get("created") == "1"})
 }
 
 func (p financePages) queue(w http.ResponseWriter, r *http.Request) {
@@ -114,7 +114,8 @@ func (p financePages) queue(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	page := inboxPage(r)
-	rows, err := p.queries.FinancePayoutQueue(r.Context(), 30*(page-1))
+	state := filterState(r, "reserved", "under_review", "approved", "denied", "processing", "confirmed", "reconciled", "failed", "stalled")
+	rows, err := p.queries.FinancePayoutQueue(r.Context(), db.FinancePayoutQueueParams{State: state, PageOffset: 30 * (page - 1)})
 	if err != nil {
 		p.failure(w, r, err)
 		return
@@ -123,7 +124,7 @@ func (p financePages) queue(w http.ResponseWriter, r *http.Request) {
 	if more {
 		rows = rows[:30]
 	}
-	p.render(w, r, 200, templates.FinancePayoutQueue(theme(r), rows, page, more))
+	p.render(w, r, 200, templates.FinancePayoutQueue(theme(r), rows, state, page, more))
 }
 
 func (p financePages) adminDetail(w http.ResponseWriter, r *http.Request) {
@@ -136,7 +137,7 @@ func (p financePages) adminDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	p.detail(w, r, templates.PayoutData{ID: row.ID, State: row.State, Currency: row.Currency, Amount: row.AmountMinor, Units: row.TestUnits,
-		Attempts: row.Attempts, Admin: true, Seller: row.Username, Available: row.Available, Held: row.Held,
+		Attempts: row.Attempts, HoldActive: row.HoldActive, Admin: true, Seller: row.Username, Available: row.Available, Held: row.Held,
 		CSRF: csrfFor(w, r), Updated: r.URL.Query().Get("updated") == "1"})
 }
 

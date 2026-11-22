@@ -152,7 +152,7 @@ func (p catalogPages) listing(w http.ResponseWriter, r *http.Request) {
 		rows = rows[:20]
 	}
 	data := templates.ListingReviewData{ID: id.String(), CSRF: csrf, Rows: rows, Counts: counts, Rating: rating, Page: page, More: more, Reported: r.URL.Query().Get("report") == "sent"}
-	p.render(w, r, http.StatusOK, templates.ListingDetail(theme(r), listing, strings.Join(listing.ShipRegions, ", "), csrf, favorite, session.ID.Valid && session.ID != listing.SellerID, data))
+	p.render(w, r, http.StatusOK, templates.ListingDetail(theme(r), listing, strings.Join(listing.ShipRegions, ", "), csrf, favorite, session.ID.Valid && session.ID != listing.SellerID, data, r.URL.Query().Get("content_report") == "sent"))
 }
 
 func (p catalogPages) image(w http.ResponseWriter, r *http.Request) {

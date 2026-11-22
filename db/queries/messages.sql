@@ -18,7 +18,7 @@ LIMIT 30 OFFSET sqlc.arg(page_offset)::integer;
 
 -- name: Thread :one
 SELECT c.id, c.listing_id, l.title, peer.username AS peer,
-       EXISTS (SELECT 1 FROM conversation_blocks b WHERE b.conversation_id = c.id) AS blocked,
+       (c.moderation_blocked OR EXISTS (SELECT 1 FROM conversation_blocks b WHERE b.conversation_id = c.id))::boolean AS blocked,
        EXISTS (SELECT 1 FROM conversation_blocks b WHERE b.conversation_id = c.id AND b.user_id = sqlc.arg(actor)::uuid) AS own_block
 FROM conversations c JOIN listings l ON l.id = c.listing_id
 JOIN users peer ON peer.id = CASE WHEN c.buyer_id = sqlc.arg(actor)::uuid THEN c.seller_id ELSE c.buyer_id END

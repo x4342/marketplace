@@ -90,7 +90,7 @@ func (f Fields) Publication(id, owner pgtype.UUID, categories []db.CatalogCatego
 	if decimalPrice.MatchString(f.Price) {
 		whole, decimals, _ := strings.Cut(f.Price, ".")
 		major, _ := strconv.ParseInt(whole, 10, 64)
-		minor, _ := strconv.ParseInt((decimals+"00")[:2], 10, 64)
+		minor, _ := strconv.ParseInt((decimals + "00")[:2], 10, 64)
 		p.PriceMinor = major*100 + minor
 	}
 	if p.PriceMinor == 0 {
@@ -153,6 +153,13 @@ func (s Service) Publish(ctx context.Context, id, owner pgtype.UUID, revision in
 	var problems []string
 	err := pgx.BeginFunc(ctx, s.Pool, func(tx pgx.Tx) error {
 		q := db.New(tx)
+		restricted, err := q.UserRestricted(ctx, owner)
+		if err != nil {
+			return err
+		}
+		if restricted {
+			return ErrConflict
+		}
 		draft, err := q.LockListingDraft(ctx, db.LockListingDraftParams{ID: id, SellerID: owner})
 		if err != nil {
 			return err

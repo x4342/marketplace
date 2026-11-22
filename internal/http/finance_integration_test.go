@@ -239,8 +239,17 @@ func TestFinancePostgres(t *testing.T) {
 		t.Fatal(err)
 	}
 	balances(0, 1000, 1900, 0, 900)
-	adjust(refunded, "refund", 303)
-	adjust(refunded, "refund", 303)
+	adjust(refunded, "refund", 409)
+	dispute, err := q.OrderDispute(ctx, refunded)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := checkout.ResolveDispute(ctx, modID, dispute, "refund", "Finance fixture dispute refund"); err != nil {
+		t.Fatal(err)
+	}
+	if err := checkout.ResolveDispute(ctx, modID, dispute, "refund", "Replay"); !errors.Is(err, orders.ErrState) {
+		t.Fatalf("dispute replay: %v", err)
+	}
 	balances(0, 1000, 0, 0, 900)
 	admin.call("GET", orderPath(refunded), nil, 404)
 
