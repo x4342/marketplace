@@ -62,3 +62,9 @@ MARKETPLACE_IDENTITY_TEST_DATABASE_URL="$DATABASE_URL" go test -race ./internal/
 ```
 
 For development role checks, use a test database and assign `moderator` or `finance_admin` to a known fixture account in `role_assignments`. Both roles are checked on each protected request. Production role provisioning and administrative queues are later work.
+
+## Local discovery
+
+Run `make fixtures` after migration to load the catalog examples. Open `/discover` for search, category and availability filters, price sorting and published storefronts. Sign in to save a listing from its detail page and find it later under Saved listings.
+
+Price comparisons use the dated simulated USD/EUR rate in migration 00003. Listing prices remain in their original currencies. Review-backed sorting and filtering require legitimate review data. Listing image uploads and seller listing management belong to M3.

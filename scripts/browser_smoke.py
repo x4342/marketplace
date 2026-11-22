@@ -83,6 +83,34 @@ def verify_identity(browser, base_url):
     context.close()
 
 
+
+def verify_discovery(browser, base_url, width):
+    context = browser.new_context(
+        viewport={"width": width, "height": 900}, java_script_enabled=False
+    )
+    page = context.new_page()
+    page.goto(base_url + "/discover")
+    expect(page.get_by_label("Sort by")).to_be_visible()
+    count = page.locator(".listing-grid").evaluate(
+        "(grid) => getComputedStyle(grid).gridTemplateColumns.split(' ').length"
+    )
+    assert count == (1 if width < 768 else 2)
+    page.screenshot(path=f"bin/smoke/discovery-{width}.png")
+    if width < 1024:
+        page.locator(".filter-drawer summary").click()
+        filters = page.locator(".filter-drawer")
+    else:
+        filters = page.locator(".discovery-rail")
+    filters.get_by_label("Availability").select_option("orderable")
+    filters.get_by_role("button", name="Apply filters").click()
+    expect(page.get_by_role("link", name="Cork desk mat")).to_be_visible()
+    expect(page.get_by_role("link", name="Compact mechanical keyboard")).to_have_count(0)
+    expect(page.get_by_label("Sort by")).to_be_visible()
+    page.go_back()
+    expect(page.get_by_role("link", name="Compact mechanical keyboard")).to_be_visible()
+    context.close()
+
+
 def main():
     base_url = os.environ["MARKETPLACE_SMOKE_URL"]
     with sync_playwright() as playwright:
@@ -93,6 +121,8 @@ def main():
             verify_layout(browser, base_url, width)
         verify_htmx(browser, base_url)
         verify_identity(browser, base_url)
+        for width in (375, 1024):
+            verify_discovery(browser, base_url, width)
         browser.close()
 
 
