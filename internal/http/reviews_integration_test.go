@@ -184,7 +184,7 @@ func TestReviewsPostgres(t *testing.T) {
 	if _, err := pool.Exec(ctx, "UPDATE review_moderation_actions SET reason='changed' WHERE review_id=$1", rid); err == nil {
 		t.Fatal("moderation history changed")
 	}
-	if _, err := pool.Exec(ctx, "UPDATE orders SET state='refunded' WHERE id=$1", id); err != nil {
+	if err := service.Adjust(ctx, ids[&finance].ID, id, "refund", "Review refund test"); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(outsider.call("GET", public, nil, 200).Body.String(), "Order later refunded") {

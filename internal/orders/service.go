@@ -235,6 +235,9 @@ func (s Service) verify(ctx context.Context, id, buyer pgtype.UUID, observation 
 		if err := q.EmitPurchaseEvent(ctx, db.EmitPurchaseEventParams{ConversationID: thread, OrderID: id, TitleSnapshot: order.Title}); err != nil {
 			return err
 		}
+		if err := q.RecordLedgerSale(ctx, db.RecordLedgerSaleParams{Subject: id, Seller: order.SellerID, Code: order.Currency, Gross: order.PriceMinor, TestUnits: observation.Units}); err != nil {
+			return err
+		}
 		return s.afterPayment(ctx, q, order)
 	})
 	if err == nil && expired {

@@ -7,6 +7,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/x4342/marketplace/internal/db"
+	"github.com/x4342/marketplace/internal/finance"
 )
 
 func (s Service) afterPayment(ctx context.Context, q *db.Queries, order db.LockOrderRow) error {
@@ -71,10 +72,18 @@ func (s Service) Act(ctx context.Context, id, actor pgtype.UUID, action, input s
 			if actor != order.BuyerID || order.State != "fulfilled" {
 				return ErrState
 			}
+			if err := finance.MoveSale(ctx, q, order, "available"); err != nil {
+				return err
+			}
 			return transition(ctx, q, id, actor, "completed", "Buyer confirmed receipt")
 		case "problem":
 			if actor != order.BuyerID || (order.State != "fulfillment_pending" && order.State != "fulfilled" && order.State != "fulfillment_failed") {
 				return ErrState
+			}
+			if order.State != "fulfillment_failed" {
+				if err := finance.MoveSale(ctx, q, order, "held"); err != nil {
+					return err
+				}
 			}
 			if err := transition(ctx, q, id, actor, "disputed", "Buyer flagged a fulfillment problem"); err != nil {
 				return err
@@ -83,6 +92,9 @@ func (s Service) Act(ctx context.Context, id, actor pgtype.UUID, action, input s
 		case "failed":
 			if actor != order.SellerID || order.State != "fulfillment_pending" {
 				return ErrState
+			}
+			if err := finance.MoveSale(ctx, q, order, "held"); err != nil {
+				return err
 			}
 			if err := transition(ctx, q, id, actor, "fulfillment_failed", "Seller reported a fulfillment failure"); err != nil {
 				return err

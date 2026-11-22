@@ -147,11 +147,18 @@ func TestOrdersPostgres(t *testing.T) {
 	expectText(&buyer, physicalOrder, "EUR 12.50")
 	expectText(&buyer, physicalOrder, "Original terms")
 
-	provider.wrong = true
-	if err := probed.SimulatePayment(ctx, physicalID, b.ID); !errors.Is(err, orders.ErrQuote) {
-		t.Fatalf("wrong unit amount returned %v", err)
+	for name, modify := range map[string]func(*db.StorePaymentObservationParams){
+		"underpaid":     func(o *db.StorePaymentObservationParams) { o.Units-- },
+		"overpaid":      func(o *db.StorePaymentObservationParams) { o.Units++ },
+		"wrong network": func(o *db.StorePaymentObservationParams) { o.Network = "wrong-network" },
+		"wrong asset":   func(o *db.StorePaymentObservationParams) { o.Asset = "WRONG" },
+	} {
+		provider.modify = modify
+		if err := probed.SimulatePayment(ctx, physicalID, b.ID); !errors.Is(err, orders.ErrQuote) {
+			t.Fatalf("%s returned %v", name, err)
+		}
 	}
-	provider.wrong = false
+	provider.modify = nil
 	var threadCount int
 	if err := pool.QueryRow(ctx, "SELECT count(*) FROM conversations WHERE listing_id=$1", physical).Scan(&threadCount); err != nil || threadCount != 0 {
 		t.Fatal("fixture started with a pre-existing conversation")
@@ -287,7 +294,7 @@ type checkoutProbe struct {
 	orders.MockProvider
 	pool              *pgxpool.Pool
 	sawCommittedOrder bool
-	wrong             bool
+	modify            func(*db.StorePaymentObservationParams)
 }
 
 func (p *checkoutProbe) Quote(ctx context.Context, id pgtype.UUID, cents int64, deadline time.Time) (db.StoreQuoteParams, error) {
@@ -305,8 +312,8 @@ func (p *checkoutProbe) Quote(ctx context.Context, id pgtype.UUID, cents int64, 
 
 func (p *checkoutProbe) Observe(ctx context.Context, q db.Quote) (db.StorePaymentObservationParams, error) {
 	observation, err := p.MockProvider.Observe(ctx, q)
-	if p.wrong {
-		observation.Units--
+	if p.modify != nil {
+		p.modify(&observation)
 	}
 	return observation, err
 }
