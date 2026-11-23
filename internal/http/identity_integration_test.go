@@ -50,9 +50,10 @@ func TestIdentityPostgres(t *testing.T) {
 	alice := testClient{t: t, handler: handler}
 	bob := testClient{t: t, handler: handler}
 	password := "fixture password 123"
-	nextPassword := "replacement password 456"
+	nextPassword := " é🦊★ ab "
 
 	alice.call("POST", "/register", url.Values{"username": {aliceName}, "password": {password}}, 403)
+	alice.call("GET", "/register", nil, 200)
 	alice.post("/register", url.Values{"username": {"with_under"}, "password": {"12345678"}}, 422)
 	alice.post("/register", url.Values{"username": {"badspace"}, "password": {"1234567"}}, 422)
 	alice.post("/register", url.Values{"username": {"oversized"}, "password": {strings.Repeat("x", 4100)}}, 403)
