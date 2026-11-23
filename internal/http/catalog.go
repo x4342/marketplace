@@ -56,6 +56,14 @@ func (p catalogPages) renderCatalog(w http.ResponseWriter, r *http.Request, valu
 		p.catalogError(w, r, err)
 		return
 	}
+	if input := values.Get("category"); input != "" && len(input) <= 120 {
+		canonical, err := p.queries.CanonicalCategory(r.Context(), input)
+		if err != nil {
+			p.catalogError(w, r, err)
+			return
+		}
+		values.Set("category", canonical)
+	}
 	filters := catalog.Parse(values, categories)
 	popular, err := p.queries.CatalogHasPopularListing(r.Context(), reviews.MinimumRatings)
 	if err != nil {

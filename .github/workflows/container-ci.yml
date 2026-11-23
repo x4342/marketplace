@@ -39,7 +39,8 @@ jobs:
               jq -e '. == null or length == 0'
           done
           curl -fsS http://127.0.0.1:8080/health/ready | grep -qx ready
-          curl -fsS http://127.0.0.1:8080/fragments/status | grep -Fq '<dd>Active</dd>'
+          docker compose exec -T worker /app/container-health worker
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/fragments/status)" = 303
           test "$(docker compose exec -T postgres psql -U marketplace -d marketplace -Atc 'SELECT count(*) FROM listings')" = 0
       - name: Check the packaged administrator command requires a TTY
         run: |
@@ -93,6 +94,8 @@ jobs:
           cmp bin/smoke/avatar-before.jpg bin/smoke/avatar-after.jpg
           curl -fsS "$image_url" > bin/smoke/after.jpg
           cmp bin/smoke/before.jpg bin/smoke/after.jpg
+      - name: Upgrade a populated M12 image through the same Compose stack
+        run: bash scripts/container-upgrade-ci.sh
       - name: Collect diagnostics and remove test containers and volumes
         if: always()
         run: |

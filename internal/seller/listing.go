@@ -143,7 +143,10 @@ func (s Service) Publish(ctx context.Context, id, owner pgtype.UUID, revision in
 		if err := json.Unmarshal(draft.Fields, &fields); err != nil {
 			return err
 		}
-		categories, err := q.CatalogCategories(ctx)
+		if err := q.LockCategoriesForPublication(ctx); err != nil {
+			return err
+		}
+		categories, err := PublicationCategories(ctx, q, id, owner, &fields)
 		if err != nil {
 			return err
 		}
@@ -170,4 +173,26 @@ func (s Service) Publish(ctx context.Context, id, owner pgtype.UUID, revision in
 		return q.ConsumeListingDraft(ctx, db.ConsumeListingDraftParams{ID: id, SellerID: owner})
 	})
 	return problems, err
+}
+
+// PublicationCategories resolves old slugs and permits an inactive category only
+// for edits that keep the existing published or paused listing in that category.
+func PublicationCategories(ctx context.Context, q *db.Queries, id, owner pgtype.UUID, fields *Fields) ([]db.CatalogCategoriesRow, error) {
+	categories, err := q.CatalogCategories(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if fields.Category != "" && len(fields.Category) <= 120 {
+		fields.Category, err = q.CanonicalCategory(ctx, fields.Category)
+		if err != nil {
+			return nil, err
+		}
+	}
+	existing, err := q.OwnedListingCategory(ctx, db.OwnedListingCategoryParams{ListingID: id, OwnerID: owner})
+	if err != nil {
+		return nil, err
+	}
+	return slices.DeleteFunc(categories, func(c db.CatalogCategoriesRow) bool {
+		return c.Inactive && c.Slug != existing
+	}), nil
 }

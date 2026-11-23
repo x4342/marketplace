@@ -66,7 +66,7 @@ templ RecoveryCodes(codes []string) {
 	}
 }
 
-templ Account(username, csrf string, staff bool) {
+templ Account(username, csrf string, staff, administrator bool) {
 	@AppShell("Account") {
 		@PageHeader("Account", "Signed in as "+username)
 		@ProfileIdentity(username)
@@ -78,7 +78,11 @@ templ Account(username, csrf string, staff bool) {
 			<a class="btn" href="/messages">Messages</a>
 			<a class="btn" href="/notifications">Notifications</a>
 			<a class="btn" href="/discover?saved=1">Saved listings</a>
+			if administrator {
+				<a class="btn btn-primary" href="/admin">Administrator dashboard</a>
+			}
 			if staff {
+				<a class="btn" href="/staff">Staff workspace</a>
 				<a class="btn" href="/admin/moderation">Moderation access</a>
 				<a class="btn" href="/admin/reviews">Review moderation</a><a class="btn" href="/admin/content">Content reports</a><a class="btn" href="/admin/disputes">Dispute center</a>
 			}

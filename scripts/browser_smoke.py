@@ -27,7 +27,8 @@ def verify_layout(browser, base_url, width):
     page.on("request", lambda request: requests.append(request.url))
 
     page.goto(base_url)
-    heading = page.get_by_role("heading", name="Overview")
+    assert urlsplit(page.url).path == "/discover"
+    heading = page.get_by_role("heading", name="Discover", exact=True)
     expect(heading).to_be_visible()
     page.keyboard.press("Tab")
     expect(page.get_by_role("link", name="Skip to content")).to_be_focused()
@@ -38,10 +39,9 @@ def verify_layout(browser, base_url, width):
     expect(page.get_by_role("button", name="Light", exact=True)).to_have_count(0)
     expect(page.get_by_role("button", name="Dark", exact=True)).to_have_count(0)
     viewport = page.locator("html").bounding_box()
-    status = page.get_by_role("region", name="System status").bounding_box()
-    assert viewport and status
-    assert viewport["width"] == width
-    assert status["x"] >= 0 and status["x"] + status["width"] <= width
+    assert viewport and viewport["width"] == width
+    assert page.locator("html").evaluate("root => root.scrollWidth") == width
+    expect(page.get_by_role("link", name="Overview", exact=True)).to_have_count(0)
     assert page.locator("body").evaluate("""body => {
         const context = document.createElement('canvas').getContext('2d');
         const luminance = color => {
@@ -60,22 +60,80 @@ def verify_layout(browser, base_url, width):
     }""") >= 4.5
     page.screenshot(path=f"bin/smoke/{width}-dark.png")
 
-    with page.expect_navigation():
-        page.get_by_role("button", name="Refresh status").click()
-    expect(page.get_by_text("Active", exact=True)).to_be_visible()
     assert all(urlsplit(url).netloc == urlsplit(base_url).netloc for url in requests)
     context.close()
 
 
-def verify_htmx(browser, base_url):
-    page = browser.new_page()
-    page.goto(base_url)
-    with page.expect_response(lambda response: response.url.endswith("/fragments/status")):
-        page.get_by_role("button", name="Refresh status").click()
-    expect(page.get_by_text("Active", exact=True)).to_be_visible()
-    expect(page.get_by_role("heading", name="Overview")).to_be_visible()
-    page.close()
-
+def verify_platform(browser, base_url, interactive=False):
+    context = browser.new_context(viewport={"width": 320, "height": 900}, java_script_enabled=interactive)
+    page = context.new_page()
+    response = page.goto(base_url + "/admin")
+    assert urlsplit(page.url).path == "/login"
+    username = register_fixture(page, base_url, "browserplatform")
+    assert page.goto(base_url + "/admin").status == 403
+    assert page.goto(base_url + "/staff").status == 403
+    subprocess.run(
+        ["psql", os.environ["DATABASE_URL"], "-X", "-v", "ON_ERROR_STOP=1", "-v", "username=" + username],
+        input="INSERT INTO role_assignments(user_id,role) SELECT id,'moderator' FROM users WHERE username=:'username';",
+        text=True,
+        check=True,
+    )
+    page.goto(base_url + "/staff")
+    expect(page.get_by_role("heading", name="Staff workspace")).to_be_visible()
+    assert_dark(page)
+    assert page.goto(base_url + "/admin/categories").status == 403
+    subprocess.run(
+        ["psql", os.environ["DATABASE_URL"], "-X", "-v", "ON_ERROR_STOP=1", "-v", "username=" + username],
+        input="UPDATE role_assignments SET role='admin' WHERE user_id=(SELECT id FROM users WHERE username=:'username');",
+        text=True,
+        check=True,
+    )
+    page.goto(base_url + "/admin")
+    expect(page.get_by_role("heading", name="Administrator dashboard")).to_be_visible()
+    if interactive:
+        with page.expect_response(lambda response: response.url.endswith("/admin/status")):
+            page.get_by_role("button", name="Refresh status").click()
+    else:
+        with page.expect_navigation():
+            page.get_by_role("button", name="Refresh status").click()
+    expect(page.get_by_text("Last heartbeat", exact=True)).to_be_visible()
+    for route, heading in (("/admin", "Administrator dashboard"), ("/admin/categories", "Product categories"),
+                           ("/admin/users", "Users and roles"), ("/staff", "Staff workspace")):
+        page.goto(base_url + route)
+        expect(page.get_by_role("heading", name=heading, exact=True)).to_be_visible()
+        for width in (320, 375, 768, 1024, 1440):
+            page.set_viewport_size({"width": width, "height": 900})
+            assert_dark(page)
+            assert page.locator("html").evaluate("root => root.scrollWidth") == width
+            if width in (320, 768, 1440) and not interactive:
+                name = route.rsplit("/", 1)[-1]
+                page.screenshot(path=f"bin/smoke/m13-{name}-{width}.png")
+        page.keyboard.press("Tab")
+        expect(page.get_by_role("link", name="Skip to content")).to_be_focused()
+        page.keyboard.press("Enter")
+        expect(page.get_by_role("main")).to_be_focused()
+    page.goto(base_url + "/admin/categories")
+    name = "Keyboard accessories " + secrets.token_hex(4)
+    page.get_by_label("Name", exact=True).fill(name)
+    page.get_by_label("Description").fill("Synthetic category created by the browser suite.")
+    page.get_by_label("Display order").fill("17")
+    page.get_by_label("Confirm category change.").check()
+    page.get_by_role("button", name="Save category").click()
+    expect(page.get_by_role("status").filter(has_text="Category saved.")).to_be_visible()
+    page.get_by_role("link", name=name, exact=True).click()
+    expect(page.get_by_label("Name", exact=True)).to_have_value(name)
+    page.get_by_label("Name", exact=True).fill(name + " updated")
+    if interactive:
+        page.once("dialog", lambda dialog: dialog.dismiss())
+        page.get_by_role("button", name="Save category").click()
+        expect(page.get_by_label("Name", exact=True)).to_have_value(name + " updated")
+        page.once("dialog", lambda dialog: dialog.accept())
+    else:
+        page.get_by_label("Confirm category change.").check()
+    page.get_by_role("button", name="Save category").click()
+    expect(page.get_by_role("status").filter(has_text="Category saved.")).to_be_visible()
+    expect(page.get_by_role("link", name=name + " updated", exact=True)).to_be_visible()
+    context.close()
 
 
 def verify_identity(browser, base_url):
@@ -576,7 +634,8 @@ def main():
         )
         for width in (320, 375, 768, 1024, 1440):
             verify_layout(browser, base_url, width)
-        verify_htmx(browser, base_url)
+        verify_platform(browser, base_url)
+        verify_platform(browser, base_url, interactive=True)
         verify_identity(browser, base_url)
         for width in (375, 1024):
             verify_discovery(browser, base_url, width)

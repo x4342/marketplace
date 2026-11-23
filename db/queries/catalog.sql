@@ -1,6 +1,10 @@
 -- name: CatalogCategories :many
-SELECT slug, name, coalesce(parent_slug, '')::text AS parent
-FROM categories ORDER BY coalesce(parent_slug, slug), parent_slug NULLS FIRST, name;
+SELECT c.slug, c.name, coalesce(c.parent_slug, '')::text AS parent,
+       (NOT c.active OR NOT coalesce(p.active,true))::boolean AS inactive,
+       c.description
+FROM categories c LEFT JOIN categories p ON p.slug=c.parent_slug
+ORDER BY coalesce(p.display_order,c.display_order), coalesce(p.name,c.name),
+         coalesce(p.slug,c.slug), c.parent_slug NULLS FIRST, c.display_order, c.name, c.slug;
 
 -- name: DiscoverListings :many
 WITH seller_ratings AS (
@@ -67,7 +71,7 @@ SELECT usd_per_eur_ppm, rate_date FROM catalog_fx_rate WHERE singleton;
 
 -- name: PublicListing :one
 SELECT l.id, l.seller_id, l.digital_asset_id, l.title, l.description, l.kind, l.price_minor, l.currency, l.stock, l.can_backorder,
-       l.condition, l.ship_regions, l.delivery_mode, l.terms, c.name AS category_name, u.username AS seller_name,
+       l.condition, l.ship_regions, l.delivery_mode, l.terms, c.slug AS category_slug, c.name AS category_name, u.username AS seller_name,
        EXISTS (SELECT 1 FROM listing_images i WHERE i.listing_id = l.id) AS has_image,
        EXISTS (SELECT 1 FROM seller_vacations v WHERE v.seller_id = l.seller_id) AS seller_away
 FROM listings l

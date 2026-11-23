@@ -86,6 +86,11 @@ func (p sellerPages) draft(w http.ResponseWriter, r *http.Request) (templates.Dr
 		p.failure(w, r, err)
 		return templates.DraftForm{}, false
 	}
+	form.Categories, err = seller.PublicationCategories(r.Context(), p.queries, id, session.ID, &form.Fields)
+	if err != nil {
+		p.failure(w, r, err)
+		return templates.DraftForm{}, false
+	}
 	return form, true
 }
 
@@ -101,13 +106,8 @@ func (p sellerPages) preview(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	categories, err := p.queries.CatalogCategories(r.Context())
-	if err != nil {
-		p.failure(w, r, err)
-		return
-	}
 	form.CSRF = csrfFor(w, r)
-	_, form.Errors = form.Fields.Publication(pgtype.UUID{}, pgtype.UUID{}, categories)
+	_, form.Errors = form.Fields.Publication(pgtype.UUID{}, pgtype.UUID{}, form.Categories)
 	p.render(w, r, http.StatusOK, templates.DraftPreview(form))
 }
 
@@ -406,12 +406,19 @@ func (p sellerPages) authorizeMutation(w http.ResponseWriter, r *http.Request) (
 }
 
 func (p sellerPages) form(w http.ResponseWriter, r *http.Request, status int, form templates.DraftForm) {
-	categories, err := p.queries.CatalogCategories(r.Context())
-	if err != nil {
-		p.failure(w, r, err)
-		return
+	if form.Categories == nil {
+		actor, ok := p.requireSession(w, r)
+		if !ok {
+			return
+		}
+		categories, err := seller.PublicationCategories(r.Context(), p.queries, listingID(r), actor.ID, &form.Fields)
+		if err != nil {
+			p.failure(w, r, err)
+			return
+		}
+		form.Categories = categories
 	}
-	form.Categories, form.CSRF = categories, csrfFor(w, r)
+	form.CSRF = csrfFor(w, r)
 	p.render(w, r, status, templates.SellerDraftForm(form))
 }
 

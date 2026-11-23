@@ -4,7 +4,7 @@ WORKDIR /src
 COPY package.json package-lock.json ./
 RUN npm ci --no-audit --no-fund
 COPY scripts/copy-assets.mjs scripts/
-COPY web/static/input.css web/static/seller-upload.js web/static/
+COPY web/static/ web/static/
 COPY web/templates/ web/templates/
 RUN mkdir -p web/static/dist && npm run build
 

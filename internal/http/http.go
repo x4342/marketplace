@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/x4342/marketplace/internal/administration"
 	"github.com/x4342/marketplace/internal/db"
 	"github.com/x4342/marketplace/internal/finance"
 	"github.com/x4342/marketplace/internal/identity"
@@ -52,13 +53,13 @@ func routes(heartbeat heartbeatReader, log *slog.Logger, assets fs.FS, accounts 
 		_, _ = w.Write([]byte("ok\n"))
 	})
 	mux.HandleFunc("GET /health/ready", app.ready)
-	mux.HandleFunc("GET /fragments/status", app.statusFragment)
 	if accounts != nil {
 		app.mountIdentity(mux, accounts)
 	}
 	if queries, ok := heartbeat.(*db.Queries); ok {
 		app.mountCatalog(mux, queries, accounts)
 		pages := identityPages{app: app, accounts: accounts}
+		platformPages{identityPages: pages, queries: queries, service: administration.Service{Pool: sales.Pool}}.mount(mux)
 		profilePages{identityPages: pages, queries: queries}.mount(mux)
 		sellerPages{identityPages: pages, queries: queries, service: sales}.mount(mux)
 		messagePages{identityPages: pages, queries: queries, pool: sales.Pool}.mount(mux)
@@ -70,7 +71,7 @@ func routes(heartbeat heartbeatReader, log *slog.Logger, assets fs.FS, accounts 
 	}
 
 	assetHandler := http.StripPrefix("/assets/", http.FileServerFS(assets))
-	for _, path := range []string{"/assets/app.css", "/assets/htmx.min.js", "/assets/seller-upload.js"} {
+	for _, path := range []string{"/assets/app.css", "/assets/htmx.min.js", "/assets/seller-upload.js", "/assets/category-confirm.js"} {
 		mux.Handle("GET "+path, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Cache-Control", "public, max-age=3600")
 			assetHandler.ServeHTTP(w, r)
@@ -101,11 +102,7 @@ func (a app) home(w http.ResponseWriter, r *http.Request) {
 		a.render(w, r, http.StatusNotFound, templates.Problem("Page unavailable", "The page you requested could not be found."))
 		return
 	}
-	a.render(w, r, http.StatusOK, templates.Overview(a.status(r.Context())))
-}
-
-func (a app) statusFragment(w http.ResponseWriter, r *http.Request) {
-	a.render(w, r, http.StatusOK, templates.SystemStatus(a.status(r.Context())))
+	http.Redirect(w, r, "/discover", http.StatusSeeOther)
 }
 
 func (a app) ready(w http.ResponseWriter, r *http.Request) {
@@ -126,7 +123,12 @@ func (a app) status(ctx context.Context) templates.Status {
 	if err != nil {
 		return templates.Status{}
 	}
+	var last string
+	if heartbeat.Valid {
+		last = heartbeat.Time.UTC().Format("2006-01-02 15:04:05 UTC")
+	}
 	return templates.Status{
+		LastHeartbeat: last,
 		DatabaseReady: true,
 		WorkerActive:  heartbeat.Valid && time.Since(heartbeat.Time) <= 45*time.Second,
 	}

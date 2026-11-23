@@ -15,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/x4342/marketplace/internal/seller"
+	"github.com/x4342/marketplace/web/templates"
 )
 
 type testHeartbeat struct {
@@ -36,15 +37,15 @@ func testHandler(heartbeat testHeartbeat) http.Handler {
 
 func TestDarkShellAndRetiredThemeRoute(t *testing.T) {
 	handler := testHandler(testHeartbeat{err: pgx.ErrNoRows})
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req := httptest.NewRequest(http.MethodGet, "/unknown", nil)
 	req.AddCookie(&http.Cookie{Name: "marketplace_theme", Value: "light"})
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, req)
 	body := response.Body.String()
-	if response.Code != http.StatusOK || !strings.Contains(body, `data-theme="dark"`) ||
+	if response.Code != http.StatusNotFound || !strings.Contains(body, `data-theme="dark"`) ||
 		!strings.Contains(body, `name="color-scheme" content="dark"`) ||
-		!strings.Contains(body, "Overview") || strings.Contains(body, "/preferences/theme") {
-		t.Fatal("expected dark Overview without theme controls")
+		!strings.Contains(body, "Return to Discover") || strings.Contains(body, "/preferences/theme") {
+		t.Fatal("expected a dark error page with Discover navigation")
 	}
 	for _, method := range []string{http.MethodGet, http.MethodPost} {
 		response := httptest.NewRecorder()
@@ -98,16 +99,17 @@ func TestDatabaseStatusAndLiveness(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			handler := testHandler(tt.source)
-			for path, want := range map[string]int{"/health/ready": tt.readiness, "/health/live": http.StatusOK, "/fragments/status": http.StatusOK} {
+			for path, want := range map[string]int{"/health/ready": tt.readiness, "/health/live": http.StatusOK} {
 				response := httptest.NewRecorder()
 				handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, path, nil))
 				if response.Code != want || strings.Contains(response.Body.String(), "private driver detail") {
 					t.Fatalf("%s returned %d, body %q", path, response.Code, response.Body.String())
 				}
-				if path == "/fragments/status" && (!strings.Contains(response.Body.String(), tt.status) ||
-					strings.Contains(response.Body.String(), "<html")) {
-					t.Fatalf("unexpected fragment: %s", response.Body.String())
-				}
+			}
+			var fragment strings.Builder
+			if err := templates.SystemStatus((app{db: tt.source}).status(t.Context())).Render(t.Context(), &fragment); err != nil ||
+				!strings.Contains(fragment.String(), tt.status) || strings.Contains(fragment.String(), "<html") {
+				t.Fatalf("unexpected status fragment %s (%v)", fragment.String(), err)
 			}
 		})
 	}
@@ -121,5 +123,14 @@ func TestAssetsAndNotFound(t *testing.T) {
 		if response.Code != want || response.Header().Get("Content-Security-Policy") == "" {
 			t.Fatalf("%s returned %d with headers %v", path, response.Code, response.Header())
 		}
+	}
+}
+
+func TestHomeRedirect(t *testing.T) {
+	handler := testHandler(testHeartbeat{})
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/", nil))
+	if response.Code != http.StatusSeeOther || response.Header().Get("Location") != "/discover" {
+		t.Fatal("home did not redirect to Discover")
 	}
 }

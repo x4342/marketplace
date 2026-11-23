@@ -9,14 +9,13 @@ templ AppShell(title string) {
 			<meta name="color-scheme" content="dark"/>
 			<meta name="htmx-config" content={ `{"allowEval":false,"allowScriptTags":false,"includeIndicatorStyles":false,"historyCacheSize":0,"selfRequestsOnly":true}` }/>
 			<title>{ title } | Private Marketplace</title>
-			<link rel="stylesheet" href="/assets/app.css?v=m11"/>
+			<link rel="stylesheet" href="/assets/app.css?v=m13"/>
 			<script src="/assets/htmx.min.js" defer></script>
 		</head>
 		<body>
 			<a class="skip-link btn" href="#main-content">Skip to content</a>
 			@Topbar()
 			<div class="app-layout">
-				@Sidebar()
 				<main id="main-content" tabindex="-1" class="app-main">
 					{ children... }
 				</main>
@@ -30,17 +29,11 @@ templ Topbar() {
 		<div class="brand">
 			<a href="/">Private Marketplace</a>
 		</div>
-		<a class="discovery-link" href="/discover">Discover</a>
-		<a class="account-link" href="/account">Account</a>
-	</header>
-}
-
-templ Sidebar() {
-	<aside class="sidebar">
-		<nav aria-label="Main navigation">
-			<a class="nav-link" href="/">Overview</a>
+		<nav class="topbar-navigation" aria-label="Main navigation">
+			<a class="discovery-link" href="/discover">Discover</a>
+			<a class="account-link" href="/account">Account</a>
 		</nav>
-	</aside>
+	</header>
 }
 
 templ PageHeader(title, description string) {
@@ -53,6 +46,6 @@ templ PageHeader(title, description string) {
 templ Problem(title, message string) {
 	@AppShell(title) {
 		@PageHeader(title, message)
-		<a class="btn btn-primary" href="/">Return to overview</a>
+		<a class="btn btn-primary" href="/discover">Return to Discover</a>
 	}
 }

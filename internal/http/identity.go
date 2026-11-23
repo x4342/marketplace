@@ -98,7 +98,7 @@ func (p identityPages) submit(w http.ResponseWriter, r *http.Request, form templ
 func (p identityPages) account(w http.ResponseWriter, r *http.Request) {
 	session, ok := p.requireSession(w, r)
 	if ok {
-		p.render(w, r, http.StatusOK, templates.Account(session.Username, csrfFor(w, r), authz.Allows(session.Role, authz.Staff)))
+		p.render(w, r, http.StatusOK, templates.Account(session.Username, csrfFor(w, r), authz.Allows(session.Role, authz.Staff), authz.Allows(session.Role, authz.Platform)))
 	}
 }
 

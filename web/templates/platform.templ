@@ -1,0 +1,254 @@
+package templates
+
+import (
+	"net/url"
+	"strconv"
+
+	"github.com/x4342/marketplace/internal/administration"
+	"github.com/x4342/marketplace/internal/db"
+)
+
+type PlatformDashboardData struct {
+	Status           Status
+	Roles            []db.AdminRoleAuditRow
+	Categories       []db.AdminCategoryAuditRow
+	AuditUnavailable bool
+}
+
+templ PlatformNav() {
+	<nav class="seller-actions platform-nav" aria-label="Administrator navigation">
+		<a class="btn" href="/admin">Dashboard</a>
+		<a class="btn" href="/admin/users">Users and roles</a>
+		<a class="btn" href="/admin/categories">Categories</a>
+		<a class="btn" href="/staff">Staff workspace</a>
+	</nav>
+}
+
+templ PlatformDashboard(data PlatformDashboardData) {
+	@AppShell("Administrator dashboard") {
+		@PageHeader("Administrator dashboard", "Manage users and categories and check the health of this marketplace.")
+		@PlatformNav()
+		<div class="platform-grid">
+			<section class="card status-card" aria-labelledby="status-heading">
+				<div class="status-header">
+					<h2 id="status-heading">System status</h2>
+					<form action="/admin" method="get" hx-get="/admin/status" hx-target="#service-status" hx-swap="outerHTML">
+						<button type="submit" class="btn">Refresh status</button>
+					</form>
+				</div>
+				@SystemStatus(data.Status)
+			</section>
+			<section class="card status-card" aria-labelledby="config-heading">
+				<div class="status-header"><h2 id="config-heading">Platform configuration</h2></div>
+				<dl class="status-list">
+					<div><dt>Payment and payout providers</dt><dd>Simulation</dd></div>
+					<div><dt>Media storage</dt><dd>PostgreSQL</dd></div>
+					<div><dt>Appearance</dt><dd>Dark</dd></div>
+				</dl>
+				<p class="status-help">Deployment settings are managed by the local operator.</p>
+			</section>
+		</div>
+		<section class="card status-card seller-panel" aria-labelledby="platform-audit">
+			<div class="status-header"><h2 id="platform-audit">Recent administrative actions</h2></div>
+			if data.AuditUnavailable {
+				<p role="status">Administrative history is temporarily unavailable.</p>
+			} else {
+				<div class="platform-grid">
+					<div>
+						<h3>Role changes</h3>
+						if len(data.Roles) == 0 {
+							<p>No role changes yet.</p>
+						}
+						<ul class="platform-history">
+							for _, event := range data.Roles {
+								<li>{ event.Actor + " set " + event.Subject + " from " + event.OldRole + " to " + event.NewRole }<br/><small>{ event.CreatedAt.Time.UTC().Format("2006-01-02 15:04 UTC") }</small></li>
+							}
+						</ul>
+					</div>
+					<div>
+						<h3>Category changes</h3>
+						if len(data.Categories) == 0 {
+							<p>No category changes yet.</p>
+						}
+						<ul class="platform-history">
+							for _, event := range data.Categories {
+								<li>
+									if event.OldSlug == "" {
+										{ event.Actor + " created " + event.Slug }
+									} else {
+										{ event.Actor + " updated " + event.Slug }
+									}
+									<br/>
+									<small>{ event.CreatedAt.Time.UTC().Format("2006-01-02 15:04 UTC") }</small>
+								</li>
+							}
+						</ul>
+					</div>
+				</div>
+			}
+		</section>
+	}
+}
+
+templ StaffWorkspace() {
+	@AppShell("Staff workspace") {
+		@PageHeader("Staff workspace", "Review marketplace content, disputes and simulated financial activity.")
+		<div class="platform-grid">
+			<section class="card status-card seller-panel" aria-label="Moderation">
+				<h2>Moderation</h2>
+				<div class="seller-actions"><a class="btn" href="/admin/content">Content reports</a><a class="btn" href="/admin/reviews">Review moderation</a><a class="btn" href="/admin/disputes">Disputes and appeals</a></div>
+			</section>
+			<section class="card status-card seller-panel" aria-label="Finance">
+				<h2>Finance</h2>
+				<div class="seller-actions"><a class="btn" href="/admin/payouts">Payout review</a><a class="btn" href="/admin/payment-adjustments">Payment adjustments</a><a class="btn" href="/admin/audit">Staff audit</a></div>
+			</section>
+		</div>
+	}
+}
+
+func platformUserPage(prefix string, page int32) templ.SafeURL {
+	query := url.Values{"q": {prefix}, "page": {strconv.FormatInt(int64(page), 10)}}
+	return templ.SafeURL("/admin/users?" + query.Encode())
+}
+
+templ PlatformUsers(rows []db.AdminUsersRow, actor, csrf, prefix string, page int32, more, saved bool, problem string) {
+	@AppShell("Users and roles") {
+		@PageHeader("Users and roles", "Find accounts and assign marketplace permissions.")
+		@PlatformNav()
+		if saved {
+			<p class="alert alert-success" role="status">Role saved.</p>
+		}
+		if problem != "" {
+			<p class="alert alert-error" role="alert">{ problem }</p>
+		}
+		<form action="/admin/users" method="get" class="seller-actions platform-search">
+			<label>Username prefix <input class="input" name="q" value={ prefix } maxlength="30"/></label>
+			<button class="btn">Find users</button>
+		</form>
+		if len(rows) == 0 {
+			<p>No accounts match this search.</p>
+		}
+		<div class="platform-grid">
+			for _, row := range rows {
+				<section class="card status-card seller-panel">
+					<h2>{ row.Username }</h2>
+					if row.Username == actor {
+						<p>Your account</p>
+					}
+					<p>{ "Joined " + row.CreatedAt.Time.UTC().Format("2 January 2006") }</p>
+					<details>
+						<summary>{ "Role: " + row.Role + " · Change role" }</summary>
+						<form action="/admin/users/role" method="post" class="seller-form">
+							<input type="hidden" name="csrf" value={ csrf }/>
+							<input type="hidden" name="username" value={ row.Username }/>
+							<input type="hidden" name="previous" value={ row.Role }/>
+							<label>
+								New role
+								<select class="select" name="role">
+									<option selected?={ row.Role == "user" } value="user">User</option>
+									<option selected?={ row.Role == "moderator" } value="moderator">Moderator</option>
+									<option selected?={ row.Role == "admin" } value="admin">Administrator</option>
+								</select>
+							</label>
+							@StaffPassword()
+							<label class="platform-toggle"><input type="checkbox" name="confirm" value="1" required/> Confirm role change and sign this account out.</label>
+							<button class="btn btn-primary">Save role</button>
+						</form>
+					</details>
+				</section>
+			}
+		</div>
+		<nav class="seller-actions platform-nav" aria-label="User result pages">
+			if page > 1 {
+				<a class="btn" href={ platformUserPage(prefix, page-1) }>Previous page</a>
+			}
+			if more {
+				<a class="btn" href={ platformUserPage(prefix, page+1) }>Next page</a>
+			}
+		</nav>
+	}
+}
+
+templ PlatformCategories(rows []db.AdminCategoriesRow, category administration.Category, csrf string, saved bool, problem string) {
+	@AppShell("Product categories") {
+		@PageHeader("Product categories", "Organize discovery and choose which categories sellers can use.")
+		@PlatformNav()
+		if category.ID.Valid {
+			<script src="/assets/category-confirm.js" defer></script>
+		}
+		if saved {
+			<p class="alert alert-success" role="status">Category saved.</p>
+		}
+		if problem != "" {
+			<p class="alert alert-error" role="alert">{ problem }</p>
+		}
+		<div class="platform-grid platform-category-grid">
+			<section class="card status-card seller-panel" aria-labelledby="edit-category">
+				if category.ID.Valid {
+					<h2 id="edit-category">Edit category</h2>
+				} else {
+					<h2 id="edit-category">Create category</h2>
+				}
+				@CategoryForm(rows, category, csrf)
+			</section>
+			<section class="card status-card seller-panel" aria-labelledby="category-list">
+				<h2 id="category-list">Categories and subcategories</h2>
+				if len(rows) == 0 {
+					<p>Create the first category to give sellers a listing destination.</p>
+				}
+				<ul class="platform-history">
+					for _, item := range rows {
+						<li class={ templ.KV("platform-child", item.ParentSlug.Valid) }>
+							<a href={ templ.SafeURL("/admin/categories/" + item.ID.String()) }>{ item.Name }</a>
+							<p>{ item.Slug + " · " + strconv.FormatInt(item.ListingCount,10) + " listings" }</p>
+							if item.ParentName.Valid {
+								<p>{ "Under " + item.ParentName.String }</p>
+							}
+							if !item.Active {
+								<p>Inactive</p>
+							}
+						</li>
+					}
+				</ul>
+			</section>
+		</div>
+	}
+}
+
+func categoryAction(category administration.Category) templ.SafeURL {
+	if category.ID.Valid {
+		return templ.SafeURL("/admin/categories/" + category.ID.String())
+	}
+	return "/admin/categories"
+}
+
+templ CategoryForm(rows []db.AdminCategoriesRow, category administration.Category, csrf string) {
+	<form action={ categoryAction(category) } method="post" class="seller-form" data-category-edit?={ category.ID.Valid }>
+		<input type="hidden" name="csrf" value={ csrf }/>
+		<input type="hidden" name="revision" value={ strconv.FormatInt(category.Revision, 10) }/>
+		<label>Name <input class="input" name="name" value={ category.Name } maxlength="100" required/></label>
+		<label>Description <textarea class="textarea" name="description" maxlength="1000" rows="4">{ category.Description }</textarea></label>
+		<label>Slug <input class="input" name="slug" value={ category.Slug } maxlength="80" pattern="[a-z0-9]+(-[a-z0-9]+)*" aria-describedby="category-slug-help"/></label>
+		<small id="category-slug-help">Leave blank to generate from the name. Old links continue to work after a rename.</small>
+		<label>
+			Parent category
+			<select class="select" name="parent">
+				<option value="">Top level</option>
+				for _, option := range rows {
+					if !option.ParentSlug.Valid && option.ID != category.ID {
+						<option value={ option.ID.String() } selected?={ category.Parent == option.ID }>{ option.Name }</option>
+					}
+				}
+			</select>
+		</label>
+		<label>Display order <input class="input" name="display_order" type="number" min="0" max="9999" value={ strconv.Itoa(int(category.DisplayOrder)) } required/></label>
+		<label class="platform-toggle"><input type="checkbox" name="active" value="1" checked?={ category.Active }/> Available for new listings</label>
+		<label class="platform-toggle platform-confirm"><input type="checkbox" name="confirm" value="1" required/> Confirm category change.</label>
+		<div class="seller-actions">
+			<button class="btn btn-primary">Save category</button>
+			if category.ID.Valid {
+				<a class="btn" href="/admin/categories">Cancel editing</a>
+			}
+		</div>
+	</form>
+}

@@ -44,7 +44,8 @@ The web listener uses `0.0.0.0:8080` only inside Docker through the explicit bri
 
 ```sh
 curl -fsS http://127.0.0.1:8080/health/ready
-curl -fsS http://127.0.0.1:8080/fragments/status | grep -F '<dd>Active</dd>'
+worker=$(sudo docker ps -q --filter label=com.docker.compose.project=marketplace --filter label=com.docker.compose.service=worker)
+test -n "$worker" && sudo docker exec "$worker" /app/container-health worker
 sudo docker ps --filter label=com.docker.compose.project=marketplace
 ```
 
@@ -111,3 +112,7 @@ Migration `00010` raises existing JPEG column limits without rewriting media. If
 ## M12 profiles and administrator provisioning
 
 The existing PostgreSQL volume stores profile biographies, sanitized avatars, and role history. Review the [legacy role and bootstrap guide](authorization.md) before upgrading. Bootstrap is a separate local interactive action after migration, and the normal stack startup never assigns an administrator.
+
+## M13 upgrade
+
+For M13, use the [administrator and upgrade guide](platform-administration.md) for the exact Arch Linux commands, schema-13 readiness checks, and archive recovery. The Compose project and PostgreSQL volume remain the same across the image replacement. System status moves into `/admin` and container health checks continue to use the existing probes.
