@@ -171,6 +171,31 @@ def verify_identity(browser, base_url):
 
 
 
+def verify_global_search(browser, base_url):
+    page = browser.new_page(viewport={"width": 320, "height": 900}, java_script_enabled=False)
+    page.goto(base_url)
+    expect(page.get_by_role("heading", name="Discover")).to_be_visible()
+    expect(page.get_by_role("searchbox")).to_have_count(1)
+    page.get_by_role("searchbox").fill("WORK")
+    page.get_by_label("Search in").select_option("users")
+    page.get_by_role("button", name="Search", exact=True).click()
+    expect(page.get_by_role("heading", name="Find users")).to_be_visible()
+    expect(page.get_by_role("link", name="workshop")).to_be_visible()
+    expect(page.get_by_label("Sort by")).to_have_count(0)
+    for width in (320, 375, 768, 1024, 1440):
+        page.set_viewport_size({"width": width, "height": 900})
+        assert page.locator("html").evaluate("node => node.scrollWidth") == width
+        assert_dark(page)
+        page.screenshot(path=f"bin/smoke/users-search-{width}.png")
+    page.get_by_role("searchbox").fill("keyboard")
+    page.get_by_label("Search in").select_option("products")
+    page.get_by_role("button", name="Search", exact=True).click()
+    expect(page.get_by_role("link", name="Compact mechanical keyboard")).to_be_visible()
+    expect(page.get_by_label("Sort by")).to_be_visible()
+    page.go_back()
+    expect(page.get_by_role("heading", name="Find users")).to_be_visible()
+    page.close()
+
 def verify_discovery(browser, base_url, width):
     context = browser.new_context(
         viewport={"width": width, "height": 900}, java_script_enabled=False
@@ -192,7 +217,7 @@ def verify_discovery(browser, base_url, width):
         expect(summary).to_contain_text("Close filters")
         expect(page.get_by_label("Sort by")).to_be_hidden()
         page.keyboard.press("Tab")
-        expect(page.locator(".filter-drawer input[type=search]")).to_be_focused()
+        expect(page.locator(".filter-drawer select[name=category]")).to_be_focused()
         page.keyboard.press("Shift+Tab")
         page.keyboard.press("Enter")
         expect(summary).to_be_focused()
@@ -637,6 +662,7 @@ def main():
         verify_platform(browser, base_url)
         verify_platform(browser, base_url, interactive=True)
         verify_identity(browser, base_url)
+        verify_global_search(browser, base_url)
         for width in (375, 1024):
             verify_discovery(browser, base_url, width)
         listing_url = verify_seller(browser, base_url)
