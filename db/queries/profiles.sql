@@ -28,7 +28,9 @@ ON CONFLICT (user_id) DO UPDATE SET bio=excluded.bio,
 SELECT avatar_jpeg FROM user_profiles WHERE user_id=$1 AND avatar_jpeg IS NOT NULL;
 
 -- name: SearchMembers :many
-SELECT u.username, left(coalesce(p.bio,''), 180)::text AS summary
+SELECT u.username, left(coalesce(p.bio,''), 180)::text AS summary,
+       (sqlc.arg(viewer)::uuid IS NOT NULL AND sqlc.arg(viewer)::uuid<>u.id
+        AND NOT EXISTS (SELECT 1 FROM user_restrictions v WHERE v.user_id=sqlc.arg(viewer)::uuid))::boolean AS can_message
 FROM users u LEFT JOIN user_profiles p ON p.user_id=u.id
 WHERE u.username COLLATE "C" >= sqlc.arg(prefix)::text
 AND u.username COLLATE "C" < (sqlc.arg(prefix)::text || '{')

@@ -420,7 +420,7 @@ def verify_messages(browser, base_url, listing_url):
     page.get_by_label("Message", exact=True).fill("Is this available for manual delivery?")
     page.get_by_role("button", name="Send message").click()
     expect(page.get_by_role("status")).to_contain_text("Message sent")
-    expect(page.get_by_text("Is this available for manual delivery?")).to_be_visible()
+    expect(page.get_by_role("region", name="Conversation messages").get_by_text("Is this available for manual delivery?")).to_be_visible()
     thread_url = page.url
     page.get_by_role("link", name="Inbox", exact=True).click()
     expect(page.get_by_role("link", name="Mobile seller fixture", exact=False)).to_be_visible()
@@ -435,9 +435,48 @@ def verify_messages(browser, base_url, listing_url):
     with thread.expect_response(lambda response: response.url.endswith("/entries")) as polled:
         thread.clock.fast_forward(31000)
     assert polled.value.ok
-    expect(thread.get_by_text("Is this available for manual delivery?")).to_be_visible()
+    expect(thread.get_by_role("region", name="Conversation messages").get_by_text("Is this available for manual delivery?")).to_be_visible()
     enhanced.close()
 
+
+def verify_direct_messages(browser, base_url, interactive=False):
+    ctx = browser.new_context(viewport={"width": 320, "height": 900}, java_script_enabled=interactive)
+    page = ctx.new_page()
+    register_fixture(page, base_url, "direct")
+    page.get_by_role("navigation", name="Main navigation").get_by_role("link", name="Messages").click()
+    expect(page.get_by_role("heading", name="Start a conversation")).to_be_visible()
+    page.get_by_role("link", name="New message").click()
+    page.get_by_role("searchbox").fill("WORK")
+    page.get_by_role("button", name="Search", exact=True).click()
+    page.get_by_role("button", name="Message workshop").click()
+    expect(page.get_by_role("heading", name="Direct conversation")).to_be_visible()
+    first = page.url
+    page.get_by_role("textbox", name="Message", exact=True).fill("Private browser fixture")
+    page.get_by_role("button", name="Send message").click()
+    expect(page.get_by_role("status")).to_contain_text("Message sent")
+    page.goto(base_url + "/users/papertrail")
+    page.get_by_role("button", name="Message papertrail").click()
+    expect(page.get_by_role("region", name="Selected conversation").get_by_role("link", name="papertrail")).to_be_visible()
+    summary = page.locator(".conversation-list > summary")
+    summary.focus()
+    page.keyboard.press("Enter")
+    expect(page.get_by_role("navigation", name="Conversations", exact=True)).to_be_hidden()
+    page.keyboard.press("Enter")
+    expect(page.get_by_role("navigation", name="Conversations", exact=True)).to_be_visible()
+    for width in (320, 375, 768, 1024, 1440):
+        page.set_viewport_size({"width": width, "height": 900})
+        assert page.locator("html").evaluate("node => node.scrollWidth") == width
+        if width >= 768:
+            panes = page.locator(".messages-workspace").evaluate("node => getComputedStyle(node).gridTemplateColumns")
+            assert len(panes.split()) == 2
+        if not interactive:
+            page.screenshot(path=f"bin/smoke/direct-messages-{width}.png")
+    page.get_by_role("navigation", name="Conversations", exact=True).get_by_role("link", name="workshop", exact=False).click()
+    assert page.url == first
+    expect(page.get_by_text("Private browser fixture", exact=True).last).to_be_visible()
+    page.go_back()
+    expect(page.get_by_role("region", name="Selected conversation").get_by_role("link", name="papertrail")).to_be_visible()
+    ctx.close()
 
 def register_fixture(page, base_url, prefix):
     page.goto(base_url + "/register")
@@ -667,6 +706,8 @@ def main():
             verify_discovery(browser, base_url, width)
         listing_url = verify_seller(browser, base_url)
         verify_messages(browser, base_url, listing_url)
+        verify_direct_messages(browser, base_url)
+        verify_direct_messages(browser, base_url, interactive=True)
         verify_profiles(browser, base_url)
         verify_profiles(browser, base_url, interactive=True)
         verify_upload_progress(browser, base_url)

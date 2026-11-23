@@ -94,7 +94,7 @@ jobs:
           cmp bin/smoke/avatar-before.jpg bin/smoke/avatar-after.jpg
           curl -fsS "$image_url" > bin/smoke/after.jpg
           cmp bin/smoke/before.jpg bin/smoke/after.jpg
-      - name: Upgrade a populated M12 image through the same Compose stack
+      - name: Upgrade a populated M13 image through the same Compose stack
         run: bash scripts/container-upgrade-ci.sh
       - name: Collect diagnostics and remove test containers and volumes
         if: always()

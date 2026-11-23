@@ -1,7 +1,9 @@
 package templates
 
 import (
+	"slices"
 	"strconv"
+	"time"
 
 	"github.com/x4342/marketplace/internal/db"
 )
@@ -14,32 +16,76 @@ type ThreadData struct {
 	CSRF           string
 	Older          string
 	Latest         bool
+	Draft          string
+	Problem        string
 }
 
 func (d ThreadData) Path() string {
 	return "/messages/" + d.Thread.ID.String()
 }
 
-templ Inbox(items []db.InboxRow, page int32, unread int64) {
+templ MessageWorkspace(items []db.InboxRow, data ThreadData, page int32, more bool, updated string) {
 	@AppShell("Messages") {
-		@PageHeader("Messages", strconv.FormatInt(unread, 10)+" unread conversations")
-		<nav class="auth-links" aria-label="Inbox navigation"><a href="/notifications">Notifications</a></nav>
-		<div class="seller-panel">
-			if len(items) == 0 {
-				<p>No conversations on this page. Open a published listing to message its seller.</p>
-			}
-			for _, item := range items {
-				<article class="card status-card seller-panel">
-					<h2><a class="seller-link" href={ templ.SafeURL("/messages/" + item.ID.String()) }>{ item.Title }</a></h2>
-					@ProfileIdentity(item.Peer)
-					if item.Unread {
-						<p>Unread messages</p>
+		<script src="/assets/messages.js" defer></script>
+		@PageHeader("Messages", "Private conversations")
+		<nav class="auth-links" aria-label="Inbox navigation">
+			<a href="/messages">Inbox</a>
+			<a href="/discover?search=users">New message</a>
+			<a href="/notifications">Notifications</a>
+		</nav>
+		<div class="messages-workspace">
+			<details class="conversation-list" open>
+				<summary class="btn">Conversations</summary>
+				<nav aria-label="Conversations">
+					if len(items) == 0 {
+						<p>No conversations on this page.</p>
 					}
-				</article>
+					for _, item := range items {
+						<a
+							class="conversation-row card status-card"
+							href={ templ.SafeURL("/messages/" + item.ID.String()) }
+							if item.ID == data.Thread.ID {
+								aria-current="page"
+							}
+						>
+							@Avatar(item.Peer)
+							<span>
+								<strong>{ item.Peer }</strong>
+								if item.Title != "" {
+									<span class="conversation-preview">{ item.Title }</span>
+								}
+								if item.Preview != "" {
+									<span class="conversation-preview">{ item.Preview }</span>
+								}
+								<time datetime={ item.UpdatedAt.Time.UTC().Format(time.RFC3339) }>{ item.UpdatedAt.Time.UTC().Format("2 Jan, 15:04 UTC") }</time>
+								if item.Unread {
+									<span class="conversation-unread">Unread messages</span>
+								}
+							</span>
+						</a>
+					}
+					@MessagePages("/messages", page, more)
+				</nav>
+			</details>
+			if data.Thread.ID.Valid {
+				@MessageThread(data, updated)
+			} else {
+				<section class="card status-card seller-panel" aria-label="Conversation">
+					<h2>Start a conversation</h2>
+					<p>Find a member by username or contact the seller from a listing.</p>
+					<a class="btn btn-primary" href="/discover?search=users">Find users</a>
+				</section>
 			}
 		</div>
-		@MessagePages("/messages", page, len(items) == 30)
 	}
+}
+
+templ DirectMessageAction(username, csrf string) {
+	<form action="/messages/direct" method="post">
+		<input type="hidden" name="csrf" value={ csrf }/>
+		<input type="hidden" name="username" value={ username }/>
+		<button class="btn" type="submit" aria-label={ "Message " + username }>Message</button>
+	</form>
 }
 
 templ Notifications(items []db.MessageNotificationsRow, orderNotices []db.UserOrderNotificationsRow, reviewNotices []db.ReviewNoticesRow, payoutNotices []db.UserPayoutNoticesRow, disputeNotices []db.UserDisputeNoticesRow, page int32) {
@@ -66,7 +112,13 @@ templ Notifications(items []db.MessageNotificationsRow, orderNotices []db.UserOr
 			}
 			for _, item := range items {
 				<article class="card status-card seller-panel">
-					<a class="seller-link" href={ templ.SafeURL("/notifications/" + item.ID.String()) }>{ "New message about " + item.Title }</a>
+					<a class="seller-link" href={ templ.SafeURL("/notifications/" + item.ID.String()) }>
+						if item.Title != "" {
+							{ "New message about " + item.Title }
+						} else {
+							{ "New message from " + item.Sender }
+						}
+					</a>
 					if item.Unread {
 						<p>Unread</p>
 					}
@@ -92,63 +144,62 @@ templ MessagePages(path string, page int32, hasMore bool) {
 }
 
 templ MessageThread(data ThreadData, updated string) {
-	@AppShell(data.Thread.Title) {
-		@PageHeader(data.Thread.Title, "Conversation with "+data.Thread.Peer)
+	<section class="msg-thread seller-panel" aria-label="Selected conversation">
+		if data.Thread.Title != "" {
+			<h2>{ data.Thread.Title }</h2>
+			<a href={ templ.SafeURL("/listings/" + data.Thread.ListingID.String()) }>View listing</a>
+		} else {
+			<h2>Direct conversation</h2>
+		}
 		@ProfileIdentity(data.Thread.Peer)
-		<div class="msg-thread seller-panel">
-			<nav class="auth-links" aria-label="Conversation navigation">
-				<a href="/messages">Inbox</a>
-				<a href={ templ.SafeURL(data.Path()) }>Latest messages</a>
-				if data.Older != "" {
-					<a href={ templ.SafeURL(data.Older) }>Older messages</a>
-				}
-			</nav>
-			if updated == "sent" {
-				<p class="alert alert-success" role="status">Message sent.</p>
-			} else if updated == "reported" {
-				<p class="alert alert-success" role="status">Report received.</p>
-			} else if updated == "block" {
-				<p class="alert alert-success" role="status">Conversation preference updated.</p>
+		<nav class="auth-links" aria-label="Conversation navigation">
+			<a href={ templ.SafeURL(data.Path()) }>Latest messages</a>
+			if data.Older != "" {
+				<a href={ templ.SafeURL(data.Older) }>Older messages</a>
 			}
-			@ThreadEntries(data)
-			if data.LatestSequence > 0 {
-				<form method="post" action={ templ.SafeURL(data.Path() + "/read") }>
+		</nav>
+		if updated == "sent" {
+			<p class="alert alert-success" role="status">Message sent.</p>
+		} else if updated == "reported" {
+			<p class="alert alert-success" role="status">Report received.</p>
+		} else if updated == "block" {
+			<p class="alert alert-success" role="status">Conversation preference updated.</p>
+		}
+		if data.Problem != "" {
+			<p class="alert alert-error" role="alert">{ data.Problem }</p>
+		}
+		@ThreadEntries(data)
+		if data.Thread.Blocked {
+			<p>Messages are paused for this conversation.</p>
+		} else {
+			<noscript><p>Send or copy your draft before switching conversations.</p></noscript>
+			<form class="seller-panel msg-form" method="post" action={ templ.SafeURL(data.Path() + "/send") }>
+				<input type="hidden" name="csrf" value={ data.CSRF }/>
+				<label for="message-body">Message</label>
+				<textarea class="textarea" id="message-body" name="message" required maxlength="2000" rows="4">{ data.Draft }</textarea>
+				<button class="btn btn-primary">Send message</button>
+			</form>
+		}
+		<details>
+			<summary class="btn">Conversation options</summary>
+			<div class="seller-panel">
+				<form method="post" action={ templ.SafeURL(data.Path() + "/block") }>
 					<input type="hidden" name="csrf" value={ data.CSRF }/>
-					<input type="hidden" name="sequence" value={ strconv.FormatInt(data.LatestSequence, 10) }/>
-					<button class="btn">Mark as read</button>
+					if data.Thread.OwnBlock {
+						<button class="btn" name="block" value="unblock">Unblock conversation</button>
+					} else {
+						<button class="btn" name="block" value="block">Block conversation</button>
+					}
 				</form>
-			}
-			if data.Thread.Blocked {
-				<p>Messages are paused for this conversation.</p>
-			} else {
-				<form class="seller-panel msg-form" method="post" action={ templ.SafeURL(data.Path() + "/send") }>
+				<form class="seller-panel msg-form" method="post" action={ templ.SafeURL(data.Path() + "/report") }>
 					<input type="hidden" name="csrf" value={ data.CSRF }/>
-					<label for="message-body">Message</label>
-					<textarea class="textarea" id="message-body" name="message" required maxlength="2000" rows="4"></textarea>
-					<button class="btn btn-primary">Send message</button>
+					<label for="report-reason">Report reason</label>
+					<textarea class="textarea" id="report-reason" name="reason" required maxlength="1000" rows="3"></textarea>
+					<button class="btn">Report conversation</button>
 				</form>
-			}
-			<details>
-				<summary class="btn">Conversation options</summary>
-				<div class="seller-panel">
-					<form method="post" action={ templ.SafeURL(data.Path() + "/block") }>
-						<input type="hidden" name="csrf" value={ data.CSRF }/>
-						if data.Thread.OwnBlock {
-							<button class="btn" name="block" value="unblock">Unblock conversation</button>
-						} else {
-							<button class="btn" name="block" value="block">Block conversation</button>
-						}
-					</form>
-					<form class="seller-panel msg-form" method="post" action={ templ.SafeURL(data.Path() + "/report") }>
-						<input type="hidden" name="csrf" value={ data.CSRF }/>
-						<label for="report-reason">Report reason</label>
-						<textarea class="textarea" id="report-reason" name="reason" required maxlength="1000" rows="3"></textarea>
-						<button class="btn">Report conversation</button>
-					</form>
-				</div>
-			</details>
-		</div>
-	}
+			</div>
+		</details>
+	</section>
 }
 
 templ ThreadEntries(data ThreadData) {
@@ -165,19 +216,49 @@ templ ThreadEntries(data ThreadData) {
 		if len(data.Messages) == 0 && len(data.Events) == 0 {
 			<p>No messages on this page.</p>
 		}
-		for _, event := range data.Events {
-			@PurchaseSystemEvent(event.TitleSnapshot)
+		for _, entry := range data.entries() {
+			if entry.Event != nil {
+				@PurchaseSystemEvent(entry.Event.TitleSnapshot)
+			} else {
+				@MessageEntry(*entry.Message)
+			}
 		}
-		for _, message := range data.Messages {
-			<article id={ "message-" + message.ID.String() } class="card status-card msg-entry">
-				<header>
-					<strong>{ message.Sender }</strong>
-					<time datetime={ message.SentAt.Time.UTC().Format("2006-01-02T15:04:05Z") }>{ message.SentAt.Time.UTC().Format("2 Jan, 15:04 UTC") }</time>
-				</header>
-				<p>{ message.Body }</p>
-			</article>
+		if data.LatestSequence > 0 {
+			<form method="post" action={ templ.SafeURL(data.Path() + "/read") }>
+				<input type="hidden" name="csrf" value={ data.CSRF }/>
+				<input type="hidden" name="sequence" value={ strconv.FormatInt(data.LatestSequence, 10) }/>
+				<button class="btn">Mark as read</button>
+			</form>
 		}
 	</section>
+}
+
+type threadEntry struct {
+	At      time.Time
+	Event   *db.ThreadEventsRow
+	Message *db.ThreadMessagesRow
+}
+
+func (d ThreadData) entries() []threadEntry {
+	out := make([]threadEntry, 0, len(d.Events)+len(d.Messages))
+	for i := range d.Events {
+		out = append(out, threadEntry{At: d.Events[i].CreatedAt.Time, Event: &d.Events[i]})
+	}
+	for i := range d.Messages {
+		out = append(out, threadEntry{At: d.Messages[i].SentAt.Time, Message: &d.Messages[i]})
+	}
+	slices.SortStableFunc(out, func(a, b threadEntry) int { return a.At.Compare(b.At) })
+	return out
+}
+
+templ MessageEntry(message db.ThreadMessagesRow) {
+	<article id={ "message-" + message.ID.String() } class="card status-card msg-entry">
+		<header>
+			<strong>{ message.Sender }</strong>
+			<time datetime={ message.SentAt.Time.UTC().Format(time.RFC3339) }>{ message.SentAt.Time.UTC().Format("2 Jan, 15:04 UTC") }</time>
+		</header>
+		<p>{ message.Body }</p>
+	</article>
 }
 
 templ PurchaseSystemEvent(title string) {

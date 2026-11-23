@@ -286,3 +286,5 @@ Read Sections 00-02 first. Identify the correct GitHub repo; audit existing code
 M14 updates C01 and M1 registration. New usernames use 3–20 ASCII letters or digits, with case-insensitive lookup and lowercase persistence. Existing account names, including underscores, stay usable. New passwords use 8–128 Unicode code points with the exact submitted bytes. Existing credentials, recovery, hashing and session rules continue to apply.
 
 M14 updates D07 and R01. The shared header is the single keyword search location, with Products and Users modes. Discover opens in Products mode and product facets retain the current keyword.
+
+M14 expands P04, C04, R04 and M4. Listing conversations and verified purchase events remain. Separately, eligible members can open one direct thread per unordered pair without a listing. The responsive Messages workspace shows the latest conversation by default and honors thread and notification URLs.

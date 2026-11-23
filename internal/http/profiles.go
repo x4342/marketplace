@@ -8,6 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/x4342/marketplace/internal/db"
+	"github.com/x4342/marketplace/internal/identity"
 	"github.com/x4342/marketplace/internal/media"
 	"github.com/x4342/marketplace/web/templates"
 )
@@ -47,7 +48,21 @@ func (p profilePages) public(w http.ResponseWriter, r *http.Request) {
 	if more {
 		listings = listings[:24]
 	}
-	p.render(w, r, 200, templates.PublicProfile(profile, listings, rating, page, more))
+	var csrf string
+	viewer, err := p.accounts.Active(r.Context(), cookieValue(r, sessionCookie))
+	if err == nil {
+		_, err = p.queries.DirectPeer(r.Context(), db.DirectPeerParams{Username: profile.Username, Actor: viewer.ID})
+		if err == nil {
+			csrf = csrfFor(w, r)
+		} else if !errors.Is(err, pgx.ErrNoRows) {
+			p.profileError(w, r, err)
+			return
+		}
+	} else if !errors.Is(err, identity.ErrInvalid) {
+		p.profileError(w, r, err)
+		return
+	}
+	p.render(w, r, 200, templates.PublicProfile(profile, listings, rating, page, more, csrf))
 }
 
 func (p profilePages) avatar(w http.ResponseWriter, r *http.Request) {
