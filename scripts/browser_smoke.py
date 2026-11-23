@@ -239,6 +239,10 @@ def verify_profiles(browser, base_url, interactive=False):
     page.reload()
     expect(page.get_by_role("heading", name=username)).to_be_visible()
     avatar_url = avatar.get_attribute("src")
+    page.goto(base_url + "/users/workshop")
+    expect(page.get_by_role("link", name="Visit storefront")).to_be_visible()
+    page.get_by_role("link", name="Contact seller about Compact mechanical keyboard").click()
+    expect(page.locator("#listing-contact")).to_have_text("Sign in to message the seller")
     context.close()
     return base_url + avatar_url
 

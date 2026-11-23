@@ -41,6 +41,13 @@ jobs:
           curl -fsS http://127.0.0.1:8080/health/ready | grep -qx ready
           curl -fsS http://127.0.0.1:8080/fragments/status | grep -Fq '<dd>Active</dd>'
           test "$(docker compose exec -T postgres psql -U marketplace -d marketplace -Atc 'SELECT count(*) FROM listings')" = 0
+      - name: Check the packaged administrator command requires a TTY
+        run: |
+          if docker compose exec -T web /app/marketplace-admin bootstrap >bin-admin-output 2>&1; then
+            echo "Administrator bootstrap accepted noninteractive input"
+            exit 1
+          fi
+          grep -F "an interactive terminal is required" bin-admin-output
       - name: Check migration repeat, invalid credentials and fixture persistence
         run: |
           version=$(docker compose exec -T postgres psql -U marketplace -d marketplace -Atc 'SELECT max(version_id) FROM goose_db_version')

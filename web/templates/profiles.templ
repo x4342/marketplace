@@ -40,6 +40,7 @@ templ PublicProfile(profile db.PublicProfileRow, listings []db.ProfileListingsRo
 					<li class="card status-card">
 						<a class="seller-link" href={ templ.SafeURL("/listings/" + listing.ID.String()) }>{ listing.Title }</a>
 						<p>{ priceLabel(listing.PriceMinor, listing.Currency) }</p>
+						<a href={ templ.SafeURL("/listings/" + listing.ID.String() + "#listing-contact") } aria-label={ "Contact seller about " + listing.Title }>Contact seller</a>
 					</li>
 				}
 			</ul>

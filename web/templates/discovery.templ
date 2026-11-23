@@ -329,10 +329,12 @@ templ ListingDetail(listing db.PublicListingRow, regions, csrf string, favorite,
 				}
 			}
 			if canContact {
-				<form action={ templ.SafeURL("/listings/" + listing.ID.String() + "/conversation") } method="post">
+				<form id="listing-contact" action={ templ.SafeURL("/listings/" + listing.ID.String() + "/conversation") } method="post">
 					<input type="hidden" name="csrf" value={ csrf }/>
 					<button class="btn btn-primary">Message seller</button>
 				</form>
+			} else if csrf == "" {
+				<a id="listing-contact" href="/login">Sign in to message the seller</a>
 			}
 			if csrf != "" {
 				@FavoriteForm(listing.ID.String(), listing.Title, csrf, "", favorite)

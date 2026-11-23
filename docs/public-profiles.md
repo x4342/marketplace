@@ -1,6 +1,6 @@
 # Public profiles and avatars
 
-A registered account has a public profile at `/users/{username}`. Guests see the username, join date, optional biography, avatar, verified seller rating where applicable, and published listings. Listing links lead to the existing contact workflow. Private order activity, purchases, messages, earnings, credentials, and moderation data are outside the public query. An active account restriction hides the profile and substitutes the default avatar. The owner keeps access to private profile settings.
+A registered account has a public profile at `/users/{username}`. Guests see the username, join date, optional biography, avatar, verified seller rating where applicable, and published listings. Each published listing links to the existing listing-specific contact workflow. Private order activity, purchases, messages, earnings, credentials, and moderation data are outside the public query. An active account restriction hides the profile and substitutes the default avatar. The owner keeps access to private profile settings.
 
 **Account → Edit profile** updates a 500-character biography and optional picture. The avatar editor uses the same crop, orientation and color conversion as M11. New avatars are 256 × 256 SDR JPEGs strictly below 512 KiB. With JavaScript disabled, the server center crops. The limits, formats and color behavior for source uploads follow the [listing media guide](listing-media.md).
 
