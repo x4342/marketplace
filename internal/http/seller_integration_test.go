@@ -114,8 +114,8 @@ func TestSellerPostgres(t *testing.T) {
 	fields.Del("crop")
 	postListingImage(t, &owner, draft, fields, imageBytes.Bytes(), 303)
 	owner.post(draft, fields, 409)
-	saved := owner.call("GET", draft+"/image", nil, 200)
-	if !bytes.Equal(square.Body.Bytes(), saved.Body.Bytes()) {
+	savedImage := owner.call("GET", draft+"/image", nil, 200)
+	if !bytes.Equal(square.Body.Bytes(), savedImage.Body.Bytes()) {
 		t.Fatal("server preview and saved center crop use different bytes")
 	}
 	other.call("GET", draft+"/image", nil, 404)
