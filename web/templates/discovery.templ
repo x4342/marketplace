@@ -101,8 +101,8 @@ func listingKind(kind string) string {
 	return "Digital"
 }
 
-templ Discover(theme string, data DiscoveryData) {
-	@AppShell("Discover", theme) {
+templ Discover(data DiscoveryData) {
+	@AppShell("Discover") {
 		<div class="discovery">
 			if data.Filters.Query.SavedOnly {
 				@PageHeader("Saved listings", "Browse listings you saved.")
@@ -300,8 +300,8 @@ templ ListingCard(listing db.DiscoverListingsRow, csrf, returnURL string) {
 	</article>
 }
 
-templ ListingDetail(theme string, listing db.PublicListingRow, regions, csrf string, favorite, canContact bool, reviewData ListingReviewData, contentReported bool) {
-	@AppShell(listing.Title, theme) {
+templ ListingDetail(listing db.PublicListingRow, regions, csrf string, favorite, canContact bool, reviewData ListingReviewData, contentReported bool) {
+	@AppShell(listing.Title) {
 		<nav class="auth-links" aria-label="Catalog navigation"><a href="/discover">Back to discovery</a></nav>
 		@PageHeader(listing.Title, listingKind(listing.Kind)+" · "+listing.CategoryName)
 		<section class="card status-card listing-detail" aria-label="Listing details">

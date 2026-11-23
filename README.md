@@ -22,7 +22,7 @@ make build
 ./bin/web
 ```
 
-From a second terminal with the same environment variables, run `./bin/worker`. Open <http://127.0.0.1:8080>. The worker records a heartbeat immediately and every 15 seconds. The overview shows it as inactive after 45 seconds without an update. Light and Dark preferences persist across reloads with or without JavaScript. Refresh status uses a full page GET when JavaScript is disabled.
+From a second terminal with the same environment variables, run `./bin/worker`. Open <http://127.0.0.1:8080>. The worker records a heartbeat immediately and every 15 seconds. The overview shows it as inactive after 45 seconds without an update. The interface uses one dark theme across pages. Refresh status uses a full page GET when JavaScript is disabled.
 
 ## Verify
 
@@ -47,7 +47,7 @@ python -m playwright install chromium
 bash scripts/smoke.sh
 ```
 
-The suite checks local assets, readiness, heartbeat changes, HTMX refresh, no-JavaScript theme persistence, and layouts at five widths.
+The suite checks local assets, readiness, heartbeat changes, HTMX refresh, dark-only rendering without JavaScript, and layouts at five widths.
 
 ## Configuration and privacy
 

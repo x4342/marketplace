@@ -15,6 +15,7 @@ The implementation agent owns engineering and verification. The repository owner
 | M8 Administration | M4–M7 | Reports, appeals and disputes, role-scoped queues, audit evidence, denial releases reservation as applicable, no finance-admin shipping access by default. | Implemented and tested in simulation |
 | M9 Hardening | M0–M8 | Regression suite, restore and reconciliation evidence, accessibility/Tor/no-JS review, threat model and owner readiness report. Public launch and live funds require approval. | Sandbox hardening and private Tor transport verified. Tor Browser and formal accessibility sign-off pending. [Readiness report](release-readiness.md) · [Issue #20](https://github.com/x4342/marketplace/issues/20). |
 | M10 Local Container Deployment | M9 | Non-root image, localhost-only Portainer stack, gated migrations, fixture opt-in, recovery instructions, and container smoke in CI. | [Issue #22](https://github.com/x4342/marketplace/issues/22) · [Arch Linux runbook](local-container-deployment.md). |
+| M11 Dark-only interface and listing media | M10 | Dark-only shell with Overview preserved. Standardized square image pipeline and crop editor tracked together. | [Issue #24](https://github.com/x4342/marketplace/issues/24). |
 
 ## Requirement tracking
 

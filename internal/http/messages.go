@@ -54,7 +54,7 @@ func (p messagePages) inbox(w http.ResponseWriter, r *http.Request) {
 		p.failure(w, r, err)
 		return
 	}
-	p.render(w, r, http.StatusOK, templates.Inbox(theme(r), rows, page, unread))
+	p.render(w, r, http.StatusOK, templates.Inbox(rows, page, unread))
 }
 
 func (p messagePages) open(w http.ResponseWriter, r *http.Request) {
@@ -112,7 +112,7 @@ func (p messagePages) loadThread(w http.ResponseWriter, r *http.Request) (templa
 
 func (p messagePages) thread(w http.ResponseWriter, r *http.Request) {
 	if data, ok := p.loadThread(w, r); ok {
-		p.render(w, r, http.StatusOK, templates.MessageThread(theme(r), data, r.URL.Query().Get("updated")))
+		p.render(w, r, http.StatusOK, templates.MessageThread(data, r.URL.Query().Get("updated")))
 	}
 }
 
@@ -277,7 +277,7 @@ func (p messagePages) notifications(w http.ResponseWriter, r *http.Request) {
 		p.failure(w, r, err)
 		return
 	}
-	p.render(w, r, http.StatusOK, templates.Notifications(theme(r), rows, orderNotices, reviewNotices, payoutNotices, disputeNotices, page))
+	p.render(w, r, http.StatusOK, templates.Notifications(rows, orderNotices, reviewNotices, payoutNotices, disputeNotices, page))
 }
 
 func (p messagePages) notification(w http.ResponseWriter, r *http.Request) {
@@ -313,7 +313,7 @@ func (p messagePages) failure(w http.ResponseWriter, r *http.Request, err error)
 }
 
 func (p messagePages) problem(w http.ResponseWriter, r *http.Request, status int, title, message string) {
-	p.render(w, r, status, templates.Problem(theme(r), title, message))
+	p.render(w, r, status, templates.Problem(title, message))
 }
 
 func validText(text string, limit int) bool {

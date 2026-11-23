@@ -58,7 +58,7 @@ func (p financePages) renderEarnings(w http.ResponseWriter, r *http.Request, act
 	if key == "" {
 		key = identity.NewToken()
 	}
-	p.render(w, r, status, templates.Earnings(theme(r), templates.EarningsData{
+	p.render(w, r, status, templates.Earnings(templates.EarningsData{
 		Balances: balances, Payouts: payouts, CSRF: csrfFor(w, r), Key: key, Page: page, More: more, Problem: problem, Currency: code, Amount: amount,
 	}))
 }
@@ -124,7 +124,7 @@ func (p financePages) queue(w http.ResponseWriter, r *http.Request) {
 	if more {
 		rows = rows[:30]
 	}
-	p.render(w, r, 200, templates.FinancePayoutQueue(theme(r), rows, state, page, more))
+	p.render(w, r, 200, templates.FinancePayoutQueue(rows, state, page, more))
 }
 
 func (p financePages) adminDetail(w http.ResponseWriter, r *http.Request) {
@@ -154,7 +154,7 @@ func (p financePages) detail(w http.ResponseWriter, r *http.Request, data templa
 		return
 	}
 	data.Reconciliation = reconciliation
-	p.render(w, r, 200, templates.PayoutDetail(theme(r), data))
+	p.render(w, r, 200, templates.PayoutDetail(data))
 }
 
 func (p financePages) adminAction(w http.ResponseWriter, r *http.Request) {
@@ -188,7 +188,7 @@ func (p financePages) adjustments(w http.ResponseWriter, r *http.Request) {
 	if more {
 		rows = rows[:30]
 	}
-	p.render(w, r, 200, templates.PaymentAdjustments(theme(r), rows, csrfFor(w, r), page, more, r.URL.Query().Get("updated") == "1"))
+	p.render(w, r, 200, templates.PaymentAdjustments(rows, csrfFor(w, r), page, more, r.URL.Query().Get("updated") == "1"))
 }
 
 func (p financePages) adjust(w http.ResponseWriter, r *http.Request) {
@@ -232,5 +232,5 @@ func (p financePages) failure(w http.ResponseWriter, r *http.Request, err error)
 	default:
 		p.log.Error("finance operation failed")
 	}
-	p.render(w, r, status, templates.Problem(theme(r), title, detail))
+	p.render(w, r, status, templates.Problem(title, detail))
 }

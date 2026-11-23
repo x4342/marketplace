@@ -34,58 +34,24 @@ func testHandler(heartbeat testHeartbeat) http.Handler {
 	return routes(heartbeat, slog.New(slog.NewTextHandler(io.Discard, nil)), assets, nil, seller.Service{})
 }
 
-func TestThemePOSTAndRender(t *testing.T) {
+func TestDarkShellAndRetiredThemeRoute(t *testing.T) {
 	handler := testHandler(testHeartbeat{err: pgx.ErrNoRows})
-	request := httptest.NewRequest(http.MethodPost, "/preferences/theme", strings.NewReader("theme=dark"))
-	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.AddCookie(&http.Cookie{Name: "marketplace_theme", Value: "light"})
 	response := httptest.NewRecorder()
-	handler.ServeHTTP(response, request)
-	if response.Code != http.StatusSeeOther || response.Header().Get("Location") != "/" {
-		t.Fatalf("theme submission returned %d, location %q", response.Code, response.Header().Get("Location"))
+	handler.ServeHTTP(response, req)
+	body := response.Body.String()
+	if response.Code != http.StatusOK || !strings.Contains(body, `data-theme="dark"`) ||
+		!strings.Contains(body, `name="color-scheme" content="dark"`) ||
+		!strings.Contains(body, "Overview") || strings.Contains(body, "/preferences/theme") {
+		t.Fatal("expected dark Overview without theme controls")
 	}
-	cookies := response.Result().Cookies()
-	if len(cookies) != 1 {
-		t.Fatalf("got %d theme cookies, want 1", len(cookies))
-	}
-	cookie := cookies[0]
-	if cookie.Name != themeCookie || cookie.Value != "dark" || !cookie.HttpOnly ||
-		cookie.SameSite != http.SameSiteStrictMode || cookie.MaxAge <= 0 {
-		t.Fatalf("unexpected theme cookie: %v", cookie)
-	}
-
-	request = httptest.NewRequest(http.MethodGet, "/", nil)
-	request.AddCookie(cookie)
-	response = httptest.NewRecorder()
-	handler.ServeHTTP(response, request)
-	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `data-theme="dark"`) ||
-		!strings.Contains(response.Body.String(), "No recent heartbeat") {
-		t.Fatalf("theme or database status missing: %d %s", response.Code, response.Body.String())
-	}
-}
-
-func TestThemeRejectsInvalidAndCrossSitePosts(t *testing.T) {
-	handler := testHandler(testHeartbeat{})
-	for _, tt := range []struct {
-		name, body, fetchSite string
-		want                  int
-	}{
-		{"unknown", "theme=blue", "", http.StatusBadRequest},
-		{"duplicate", "theme=dark&theme=light", "", http.StatusBadRequest},
-		{"too large", "theme=" + strings.Repeat("a", 1100), "", http.StatusBadRequest},
-		{"cross site", "theme=dark", "cross-site", http.StatusForbidden},
-	} {
-		t.Run(tt.name, func(t *testing.T) {
-			request := httptest.NewRequest(http.MethodPost, "/preferences/theme", strings.NewReader(tt.body))
-			request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-			if tt.fetchSite != "" {
-				request.Header.Set("Sec-Fetch-Site", tt.fetchSite)
-			}
-			response := httptest.NewRecorder()
-			handler.ServeHTTP(response, request)
-			if response.Code != tt.want || response.Header().Get("Set-Cookie") != "" {
-				t.Fatalf("got %d and cookie %q, want %d and no cookie", response.Code, response.Header().Get("Set-Cookie"), tt.want)
-			}
-		})
+	for _, method := range []string{http.MethodGet, http.MethodPost} {
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, httptest.NewRequest(method, "/preferences/theme", nil))
+		if response.Code < 400 || response.Header().Get("Set-Cookie") != "" {
+			t.Fatalf("%s retired theme route returned %d or set a cookie", method, response.Code)
+		}
 	}
 }
 
@@ -96,11 +62,11 @@ func TestOnionFormsPreserveSameOriginChecks(t *testing.T) {
 		requestOrigin string
 		want          int
 	}{
-		{origin, http.StatusSeeOther},
+		{origin, http.StatusMethodNotAllowed},
 		{"null", http.StatusForbidden},
 		{"http://other.test", http.StatusForbidden},
 	} {
-		request := httptest.NewRequest(http.MethodPost, origin+"/preferences/theme", strings.NewReader("theme=dark"))
+		request := httptest.NewRequest(http.MethodPost, origin+"/health/live", nil)
 		request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 		request.Header.Set("Origin", test.requestOrigin)
 		response := httptest.NewRecorder()

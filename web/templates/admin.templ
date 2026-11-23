@@ -59,8 +59,8 @@ templ DisputeForm(d OrderData) {
 	</details>
 }
 
-templ DisputePage(theme string, d DisputeData) {
-	@AppShell("Dispute", theme) {
+templ DisputePage(d DisputeData) {
+	@AppShell("Dispute") {
 		@PageHeader("Dispute", d.Record.Title)
 		<div class="seller-panel commerce-panel">
 			if d.Admin {
@@ -178,8 +178,8 @@ templ ListingReport(id, csrf string, sent bool) {
 	</section>
 }
 
-templ ContentDetail(theme string, row db.ContentReportRecordRow, appeals []db.PendingContentAppealsRow, csrf string, updated bool) {
-	@AppShell("Content report", theme) {
+templ ContentDetail(row db.ContentReportRecordRow, appeals []db.PendingContentAppealsRow, csrf string, updated bool) {
+	@AppShell("Content report") {
 		@PageHeader("Content report", row.Subject)
 		<div class="seller-panel commerce-panel">
 			<a class="seller-link" href="/admin/content">Back to content reports</a>
@@ -215,8 +215,8 @@ templ ContentDetail(theme string, row db.ContentReportRecordRow, appeals []db.Pe
 	}
 }
 
-templ MyContentCases(theme string, cases []ContentAppealCard, csrf string, page int32, more, sent bool) {
-	@AppShell("Moderation decisions", theme) {
+templ MyContentCases(cases []ContentAppealCard, csrf string, page int32, more, sent bool) {
+	@AppShell("Moderation decisions") {
 		@PageHeader("Moderation decisions", "View decisions that affect your account, listings or conversations.")
 		if sent {
 			<p class="alert alert-success" role="status">Content appeal received.</p>
@@ -246,8 +246,8 @@ templ MyContentCases(theme string, cases []ContentAppealCard, csrf string, page 
 	}
 }
 
-templ ContentQueue(theme string, rows []db.ContentQueueRow, state string, page int32, more bool) {
-	@AppShell("Content reports", theme) {
+templ ContentQueue(rows []db.ContentQueueRow, state string, page int32, more bool) {
+	@AppShell("Content reports") {
 		@PageHeader("Content reports", "Review listing, account, and conversation reports.")
 		@CaseFilter("/admin/content", state, []string{"open", "restricted", "dismissed", "restored", "upheld"})
 		<table class="admin-records" role="table">
@@ -279,8 +279,8 @@ templ ContentQueue(theme string, rows []db.ContentQueueRow, state string, page i
 	}
 }
 
-templ DisputesQueue(theme string, rows []db.DisputesQueueRow, state string, page int32, more bool) {
-	@AppShell("Dispute center", theme) {
+templ DisputesQueue(rows []db.DisputesQueueRow, state string, page int32, more bool) {
+	@AppShell("Dispute center") {
 		@PageHeader("Dispute center", "Review order cases and simulated outcomes.")
 		@CaseFilter("/admin/disputes", state, []string{"open", "hold", "released", "refunded"})
 		<table class="admin-records" role="table">
@@ -343,8 +343,8 @@ templ CasePages(path, state string, page int32, more bool) {
 	</nav>
 }
 
-templ AuditPage(theme string, rows []db.AdminAuditRow, page int32, more bool) {
-	@AppShell("Administrative audit", theme) {
+templ AuditPage(rows []db.AdminAuditRow, page int32, more bool) {
+	@AppShell("Administrative audit") {
 		@PageHeader("Administrative audit", "Recorded actions and case access for your administrative roles.")
 		<table class="admin-records" role="table">
 			<thead role="rowgroup"><tr role="row"><th scope="col" role="columnheader">Action</th><th scope="col" role="columnheader">Actor and time</th><th scope="col" role="columnheader">Reason</th></tr></thead>

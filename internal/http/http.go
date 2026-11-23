@@ -25,8 +25,6 @@ import (
 	"github.com/x4342/marketplace/web/templates"
 )
 
-const themeCookie = "marketplace_theme"
-
 var onionHost = regexp.MustCompile(`(?i)^[a-z2-7]{56}\.onion(?::[0-9]{1,5})?$`)
 
 type heartbeatReader interface {
@@ -50,7 +48,6 @@ func routes(heartbeat heartbeatReader, log *slog.Logger, assets fs.FS, accounts 
 	app := app{db: heartbeat, log: log}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /", app.home)
-	mux.HandleFunc("POST /preferences/theme", app.setTheme)
 	mux.HandleFunc("GET /health/live", func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte("ok\n"))
 	})
@@ -81,7 +78,7 @@ func routes(heartbeat heartbeatReader, log *slog.Logger, assets fs.FS, accounts 
 
 	csrf := http.NewCrossOriginProtection()
 	csrf.SetDenyHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		app.render(w, r, http.StatusForbidden, templates.Problem(theme(r), "Request denied", "Submit the form from the marketplace page."))
+		app.render(w, r, http.StatusForbidden, templates.Problem("Request denied", "Submit the form from the marketplace page."))
 	}))
 	protected := csrf.Handler(mux)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -100,10 +97,10 @@ func routes(heartbeat heartbeatReader, log *slog.Logger, assets fs.FS, accounts 
 
 func (a app) home(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/" {
-		a.render(w, r, http.StatusNotFound, templates.Problem(theme(r), "Page unavailable", "The page you requested could not be found."))
+		a.render(w, r, http.StatusNotFound, templates.Problem("Page unavailable", "The page you requested could not be found."))
 		return
 	}
-	a.render(w, r, http.StatusOK, templates.Overview(theme(r), a.status(r.Context())))
+	a.render(w, r, http.StatusOK, templates.Overview(a.status(r.Context())))
 }
 
 func (a app) statusFragment(w http.ResponseWriter, r *http.Request) {
@@ -132,37 +129,6 @@ func (a app) status(ctx context.Context) templates.Status {
 		DatabaseReady: true,
 		WorkerActive:  heartbeat.Valid && time.Since(heartbeat.Time) <= 45*time.Second,
 	}
-}
-
-func (a app) setTheme(w http.ResponseWriter, r *http.Request) {
-	r.Body = http.MaxBytesReader(w, r.Body, 1024)
-	if err := r.ParseForm(); err != nil {
-		a.render(w, r, http.StatusBadRequest, templates.Problem(theme(r), "Invalid theme request", "Return to the overview to select a theme."))
-		return
-	}
-	value := r.PostForm.Get("theme")
-	if len(r.PostForm["theme"]) != 1 || (value != "light" && value != "dark") {
-		a.render(w, r, http.StatusBadRequest, templates.Problem(theme(r), "Invalid theme selection", "Choose Light or Dark from the overview."))
-		return
-	}
-	http.SetCookie(w, &http.Cookie{
-		Name:     themeCookie,
-		Value:    value,
-		Path:     "/",
-		MaxAge:   365 * 24 * 60 * 60,
-		HttpOnly: true,
-		Secure:   r.TLS != nil,
-		SameSite: http.SameSiteStrictMode,
-	})
-	http.Redirect(w, r, "/", http.StatusSeeOther)
-}
-
-func theme(r *http.Request) string {
-	cookie, err := r.Cookie(themeCookie)
-	if err == nil && (cookie.Value == "light" || cookie.Value == "dark") {
-		return cookie.Value
-	}
-	return ""
 }
 
 func (a app) render(w http.ResponseWriter, r *http.Request, status int, component templ.Component) {

@@ -1,7 +1,7 @@
 @import "tailwindcss" source(none);
 @source "../templates";
 @plugin "daisyui" {
-  themes: light --default, dark --prefersdark;
+  themes: dark --default;
   exclude: rootscrollgutter;
 }
 
@@ -55,22 +55,8 @@ body {
   text-decoration: underline;
 }
 
-.theme-picker {
-  display: flex;
-  gap: 0.5rem;
-}
-
 .btn {
   min-height: 44px;
-}
-
-.theme-picker .btn {
-  min-width: 44px;
-}
-
-.theme-picker [aria-pressed="true"] {
-  background: var(--color-primary);
-  color: var(--color-primary-content);
 }
 
 .app-layout {

@@ -80,8 +80,8 @@ func payoutState(state string) string {
 	}
 }
 
-templ Earnings(theme string, data EarningsData) {
-	@AppShell("Earnings", theme) {
+templ Earnings(data EarningsData) {
+	@AppShell("Earnings") {
 		@PageHeader("Earnings", "Simulated seller balances and payouts.")
 		<div class="seller-panel commerce-panel">
 			@BalanceSummary(data.Balances)
@@ -141,8 +141,8 @@ templ BalanceSummary(rows []db.SellerBalancesRow) {
 	</div>
 }
 
-templ PayoutDetail(theme string, data PayoutData) {
-	@AppShell("Simulated payout", theme) {
+templ PayoutDetail(data PayoutData) {
+	@AppShell("Simulated payout") {
 		@PageHeader("Simulated payout", payoutState(data.State))
 		<div class="seller-panel commerce-panel">
 			if data.Admin {
@@ -231,8 +231,8 @@ templ PayoutActionForm(data PayoutData) {
 	</form>
 }
 
-templ FinancePayoutQueue(theme string, rows []db.FinancePayoutQueueRow, state string, page int32, more bool) {
-	@AppShell("Payout review", theme) {
+templ FinancePayoutQueue(rows []db.FinancePayoutQueueRow, state string, page int32, more bool) {
+	@AppShell("Payout review") {
 		@PageHeader("Payout review", "Review reservations and reconcile confirmed simulated payouts.")
 		<a class="seller-link" href="/admin/payment-adjustments">Simulated payment adjustments</a>
 		@CaseFilter("/admin/payouts", state, []string{"reserved", "under_review", "approved", "denied", "processing", "confirmed", "reconciled", "failed", "stalled"})
@@ -251,8 +251,8 @@ templ FinancePayoutQueue(theme string, rows []db.FinancePayoutQueueRow, state st
 	}
 }
 
-templ PaymentAdjustments(theme string, rows []db.FinanceOrderQueueRow, csrf string, page int32, more, updated bool) {
-	@AppShell("Simulated payment adjustments", theme) {
+templ PaymentAdjustments(rows []db.FinanceOrderQueueRow, csrf string, page int32, more, updated bool) {
+	@AppShell("Simulated payment adjustments") {
 		@PageHeader("Simulated payment adjustments", "Post a full refund or simulated chain reversal with compensating journal entries.")
 		<div class="seller-panel commerce-panel">
 			<a class="seller-link" href="/admin/payouts">Back to payout review</a>

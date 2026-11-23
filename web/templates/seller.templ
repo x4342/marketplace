@@ -26,8 +26,8 @@ func (f DraftForm) Path() string {
 	return "/sell/drafts/" + f.ID
 }
 
-templ SellerDashboard(theme, csrf string, updated, away bool, drafts []db.SellerDraftsRow, listings []db.SellerListingsRow) {
-	@AppShell("Sell", theme) {
+templ SellerDashboard(csrf string, updated, away bool, drafts []db.SellerDraftsRow, listings []db.SellerListingsRow) {
+	@AppShell("Sell") {
 		@PageHeader("Sell", "Save drafts and manage published listings.")
 		if updated {
 			<p class="alert alert-success" role="status">Seller settings updated.</p>
@@ -115,8 +115,8 @@ templ SellerDashboard(theme, csrf string, updated, away bool, drafts []db.Seller
 	}
 }
 
-templ SellerDraftForm(theme string, form DraftForm) {
-	@AppShell("Edit listing", theme) {
+templ SellerDraftForm(form DraftForm) {
+	@AppShell("Edit listing") {
 		@PageHeader("Edit listing", "Save a private draft at any point and preview it before publishing.")
 		<a class="seller-link" href="/sell">Back to Sell</a>
 		if form.Saved {
@@ -177,8 +177,8 @@ templ SellerDraftForm(theme string, form DraftForm) {
 	}
 }
 
-templ DraftPreview(theme string, form DraftForm) {
-	@AppShell("Listing preview", theme) {
+templ DraftPreview(form DraftForm) {
+	@AppShell("Listing preview") {
 		@PageHeader("Listing preview", "Review this draft before publishing.")
 		<a class="seller-link" href={ templ.SafeURL(form.Path()) }>Edit draft</a>
 		@SellerErrors(form.Errors)

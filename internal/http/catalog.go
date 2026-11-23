@@ -101,7 +101,7 @@ func (p catalogPages) renderCatalog(w http.ResponseWriter, r *http.Request, valu
 	if int64(filters.Page*catalog.PageSize) < results.Total {
 		results.Next = filters.Link(filters.Page + 1)
 	}
-	p.render(w, r, http.StatusOK, templates.Discover(theme(r), results))
+	p.render(w, r, http.StatusOK, templates.Discover(results))
 }
 
 func (p catalogPages) listing(w http.ResponseWriter, r *http.Request) {
@@ -152,7 +152,7 @@ func (p catalogPages) listing(w http.ResponseWriter, r *http.Request) {
 		rows = rows[:20]
 	}
 	data := templates.ListingReviewData{ID: id.String(), CSRF: csrf, Rows: rows, Counts: counts, Rating: rating, Page: page, More: more, Reported: r.URL.Query().Get("report") == "sent"}
-	p.render(w, r, http.StatusOK, templates.ListingDetail(theme(r), listing, strings.Join(listing.ShipRegions, ", "), csrf, favorite, session.ID.Valid && session.ID != listing.SellerID, data, r.URL.Query().Get("content_report") == "sent"))
+	p.render(w, r, http.StatusOK, templates.ListingDetail(listing, strings.Join(listing.ShipRegions, ", "), csrf, favorite, session.ID.Valid && session.ID != listing.SellerID, data, r.URL.Query().Get("content_report") == "sent"))
 }
 
 func (p catalogPages) image(w http.ResponseWriter, r *http.Request) {
@@ -193,7 +193,7 @@ func (p catalogPages) favorite(w http.ResponseWriter, r *http.Request) {
 	case "remove":
 		err = p.queries.RemoveFavorite(r.Context(), db.RemoveFavoriteParams{UserID: session.ID, ListingID: id})
 	default:
-		p.render(w, r, http.StatusBadRequest, templates.Problem(theme(r), "Invalid favorites request", "Use the controls on the listing page."))
+		p.render(w, r, http.StatusBadRequest, templates.Problem("Invalid favorites request", "Use the controls on the listing page."))
 		return
 	}
 	if err != nil {
@@ -213,9 +213,9 @@ func (p catalogPages) favorite(w http.ResponseWriter, r *http.Request) {
 
 func (p catalogPages) catalogError(w http.ResponseWriter, r *http.Request, err error) {
 	if errors.Is(err, pgx.ErrNoRows) {
-		p.render(w, r, http.StatusNotFound, templates.Problem(theme(r), "Page unavailable", "Return to discovery to find published listings and storefronts."))
+		p.render(w, r, http.StatusNotFound, templates.Problem("Page unavailable", "Return to discovery to find published listings and storefronts."))
 		return
 	}
 	p.log.Error("catalog query failed")
-	p.render(w, r, http.StatusServiceUnavailable, templates.Problem(theme(r), "Catalog unavailable", "Try again shortly."))
+	p.render(w, r, http.StatusServiceUnavailable, templates.Problem("Catalog unavailable", "Try again shortly."))
 }
