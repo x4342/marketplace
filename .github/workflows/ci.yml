@@ -58,6 +58,7 @@ jobs:
       - run: MARKETPLACE_REVIEWS_TEST_DATABASE_URL="$DATABASE_URL" go test -mod=readonly -race ./internal/http -run TestReviewsPostgres -v
       - run: MARKETPLACE_FINANCE_TEST_DATABASE_URL="$DATABASE_URL" go test -mod=readonly -race ./internal/http -run TestFinancePostgres -v
       - run: MARKETPLACE_ADMIN_TEST_DATABASE_URL="$DATABASE_URL" go test -mod=readonly -race ./internal/http -run TestAdminPostgres -v
+      - run: MARKETPLACE_PROFILE_TEST_DATABASE_URL="$DATABASE_URL" go test -mod=readonly -race ./internal/http -run TestProfilesPostgres -v
       - run: bash scripts/smoke.sh
       - run: make reconcile
       - name: Restore populated PostgreSQL fixtures

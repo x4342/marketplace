@@ -16,12 +16,13 @@ import (
 )
 
 const (
-	MaxUpload = 10_000_000
-	MinSide   = 256
-	MaxSide   = 2560
-	maxPixels = 36_000_000
-	maxEdge   = 8192
-	frameEdge = 1024
+	MaxUpload   = 10_000_000
+	MinSide     = 256
+	AvatarBytes = 512*1024 - 1
+	MaxSide     = 2560
+	maxPixels   = 36_000_000
+	maxEdge     = 8192
+	frameEdge   = 1024
 )
 
 var (
@@ -71,6 +72,14 @@ type Result struct {
 }
 
 func Square(raw []byte, crop Crop) (Result, error) {
+	return square(raw, crop, MaxSide, MaxUpload)
+}
+
+func Avatar(raw []byte, crop Crop) (Result, error) {
+	return square(raw, crop, MinSide, AvatarBytes)
+}
+
+func square(raw []byte, crop Crop, maxSide, limit int) (Result, error) {
 	src, err := decode(raw)
 	if err != nil {
 		return Result{}, err
@@ -84,8 +93,8 @@ func Square(raw []byte, crop Crop) (Result, error) {
 		crop.X > size.X-crop.Side || crop.Y > size.Y-crop.Side {
 		return Result{}, errors.New("Choose a square crop of at least 256 × 256 pixels inside the image.")
 	}
-	side := min(crop.Side, MaxSide)
-	return derivative(src, image.Rect(crop.X, crop.Y, crop.X+crop.Side, crop.Y+crop.Side), side, side)
+	side := min(crop.Side, maxSide)
+	return derivative(src, image.Rect(crop.X, crop.Y, crop.X+crop.Side, crop.Y+crop.Side), side, side, limit)
 }
 
 // Frame generates a bounded, oriented preview. It never returns the uploaded bytes.
@@ -96,7 +105,7 @@ func Frame(raw []byte) (Result, error) {
 	}
 	size := src.Bounds().Size()
 	edge := max(frameEdge, size.X, size.Y)
-	return derivative(src, src.Bounds(), max(1, size.X*frameEdge/edge), max(1, size.Y*frameEdge/edge))
+	return derivative(src, src.Bounds(), max(1, size.X*frameEdge/edge), max(1, size.Y*frameEdge/edge), MaxUpload)
 }
 
 func decode(raw []byte) (image.Image, error) {
@@ -179,9 +188,9 @@ func (p photo) At(x, y int) color.Color {
 	return color.RGBA{R: channel(r), G: channel(g), B: channel(b), A: 255}
 }
 
-func derivative(src image.Image, crop image.Rectangle, w, h int) (Result, error) {
+func derivative(src image.Image, crop image.Rectangle, w, h, limit int) (Result, error) {
 	dst := resize(src, crop, w, h)
-	var out limitedBuffer
+	out := limitedBuffer{limit: limit}
 	for _, quality := range []int{90, 84, 76, 68} {
 		out.Reset()
 		err := jpeg.Encode(&out, dst, &jpeg.Options{Quality: quality})
@@ -192,7 +201,7 @@ func derivative(src image.Image, crop image.Rectangle, w, h int) (Result, error)
 			return Result{}, errCorrupt
 		}
 	}
-	return Result{}, errOutputLimit
+	return Result{}, errors.New("The processed JPEG could not fit within its size limit. Choose a simpler photo.")
 }
 
 // Stage large reductions to avoid the cubic scaler's 32-byte-per-sample
@@ -220,10 +229,13 @@ func resize(src image.Image, crop image.Rectangle, w, h int) *image.RGBA {
 
 var errOutputLimit = errors.New("The processed JPEG exceeds 10 MB. Choose a smaller crop.")
 
-type limitedBuffer struct{ bytes.Buffer }
+type limitedBuffer struct {
+	bytes.Buffer
+	limit int
+}
 
 func (b *limitedBuffer) Write(p []byte) (int, error) {
-	if len(p) > MaxUpload-b.Len() {
+	if len(p) > b.limit-b.Len() {
 		return 0, errOutputLimit
 	}
 	return b.Buffer.Write(p)

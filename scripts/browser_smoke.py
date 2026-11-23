@@ -211,6 +211,42 @@ def listing_photo():
     }
 
 
+def verify_profiles(browser, base_url, interactive=False):
+    context = browser.new_context(viewport={"width": 320, "height": 900}, java_script_enabled=interactive)
+    page = context.new_page()
+    username = register_fixture(page, base_url, "profile")
+    page.goto(base_url + "/account/profile")
+    page.get_by_label("Biography").fill("Public marketplace profile fixture")
+    page.locator("input[name=image]").set_input_files(listing_photo())
+    if interactive:
+        expect(page.locator("#crop-status")).to_contain_text("Confirm")
+        page.get_by_label("Zoom").press("End")
+        page.get_by_role("button", name="Confirm crop").click()
+        expect(page.locator("#crop-status")).to_contain_text("Crop confirmed")
+    page.get_by_role("button", name="Save profile").click()
+    expect(page.get_by_role("status").filter(has_text="Profile saved.")).to_be_visible()
+    public = base_url + "/users/" + username
+    page.goto(public)
+    expect(page.get_by_text("Public marketplace profile fixture", exact=True)).to_be_visible()
+    for width in (320, 375, 768, 1024, 1440):
+        page.set_viewport_size({"width": width, "height": 900})
+        assert page.locator("html").evaluate("node => node.scrollWidth") == width
+        assert_dark(page)
+    avatar = page.locator(".profile-header .profile-avatar")
+    expect(avatar).to_be_visible()
+    assert avatar.evaluate("img => img.naturalWidth === 256 && img.naturalHeight === 256")
+    context.clear_cookies()
+    page.reload()
+    expect(page.get_by_role("heading", name=username)).to_be_visible()
+    avatar_url = avatar.get_attribute("src")
+    page.goto(base_url + "/users/workshop")
+    expect(page.get_by_role("link", name="Visit storefront")).to_be_visible()
+    page.get_by_role("link", name="Contact seller about Compact mechanical keyboard").click()
+    expect(page.locator("#listing-contact")).to_have_text("Sign in to message the seller")
+    context.close()
+    return base_url + avatar_url
+
+
 def verify_upload_progress(browser, base_url):
     page = browser.new_page(viewport={"width": 375, "height": 900}, has_touch=True)
     page.goto(base_url + "/register")
@@ -545,6 +581,8 @@ def main():
             verify_discovery(browser, base_url, width)
         listing_url = verify_seller(browser, base_url)
         verify_messages(browser, base_url, listing_url)
+        verify_profiles(browser, base_url)
+        verify_profiles(browser, base_url, interactive=True)
         verify_upload_progress(browser, base_url)
         verify_orders(browser, base_url)
         verify_disputes(browser, base_url)

@@ -1,4 +1,4 @@
-const draftForm = document.querySelector('#seller-draft-form');
+const draftForm = document.querySelector('[data-image-editor]');
 
 if (draftForm && typeof XMLHttpRequest === 'function' && typeof createImageBitmap === 'function') {
   const get = (id) => draftForm.querySelector('#' + id);
@@ -90,7 +90,7 @@ if (draftForm && typeof XMLHttpRequest === 'function' && typeof createImageBitma
         final = decoded;
         pixels.drawImage(final, 0, 0, canvas.width, canvas.height);
         crop.value = selection;
-        cropStatus.textContent = 'Crop confirmed. Save the draft to keep it.';
+        cropStatus.textContent = 'Crop confirmed. Save your changes to keep it.';
       } else {
         frame = decoded;
         width = Number(result.headers.get('X-Image-Width'));
@@ -189,7 +189,7 @@ if (draftForm && typeof XMLHttpRequest === 'function' && typeof createImageBitma
     request.timeout = 35000;
     progress.hidden = false;
     progress.removeAttribute('value');
-    setFeedback('Uploading listing image…');
+    setFeedback('Uploading image…');
     submitButtons.forEach((button) => { button.disabled = true; });
     editor.inert = true;
     input.disabled = true;
@@ -199,19 +199,19 @@ if (draftForm && typeof XMLHttpRequest === 'function' && typeof createImageBitma
     });
     request.addEventListener('load', () => {
       const destination = request.getResponseHeader('X-Draft-Location');
-      if (request.status === 204 && destination?.startsWith('/sell/drafts/')) {
+      if (request.status === 204 && destination?.startsWith(draftForm.dataset.imageDestination)) {
         location.assign(destination);
         return;
       }
       const page = new DOMParser().parseFromString(request.responseText, 'text/html');
       message.textContent = page.querySelector('#seller-errors')?.textContent.trim()
-        || (request.status === 503 ? 'Another image is being processed. Please try again.' : 'The draft could not be saved. Check your account session and try again.');
+        || (request.status === 503 ? 'Another image is being processed. Please try again.' : 'Your changes could not be saved. Check your account session and try again.');
     });
     request.addEventListener('error', () => {
       message.textContent = 'The upload was interrupted. Try again.';
     });
     request.addEventListener('timeout', () => {
-      message.textContent = 'The upload timed out. Check your draft before retrying.';
+      message.textContent = 'The upload timed out. Check whether your changes were saved before retrying.';
     });
     request.addEventListener('loadend', () => {
       progress.hidden = true;
