@@ -35,7 +35,7 @@ func TestMessagesPostgres(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	var token [8]byte
+	var token [7]byte
 	_, _ = rand.Read(token[:])
 	suffix := hex.EncodeToString(token[:])
 	buyerName, sellerName, guestName := "buyer"+suffix, "seller"+suffix, "other"+suffix
