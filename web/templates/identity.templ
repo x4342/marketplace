@@ -66,7 +66,7 @@ templ RecoveryCodes(codes []string) {
 	}
 }
 
-templ Account(username, csrf string, moderator, finance bool) {
+templ Account(username, csrf string, staff bool) {
 	@AppShell("Account") {
 		@PageHeader("Account", "Signed in as "+username)
 		@ProfileIdentity(username)
@@ -78,15 +78,15 @@ templ Account(username, csrf string, moderator, finance bool) {
 			<a class="btn" href="/messages">Messages</a>
 			<a class="btn" href="/notifications">Notifications</a>
 			<a class="btn" href="/discover?saved=1">Saved listings</a>
-			if moderator {
+			if staff {
 				<a class="btn" href="/admin/moderation">Moderation access</a>
 				<a class="btn" href="/admin/reviews">Review moderation</a><a class="btn" href="/admin/content">Content reports</a><a class="btn" href="/admin/disputes">Dispute center</a>
 			}
-			if finance {
+			if staff {
 				<a class="btn" href="/admin/finance">Finance access</a>
 				<a class="btn" href="/admin/payouts">Payout review</a>
 			}
-			if moderator || finance {
+			if staff {
 				<a class="btn" href="/admin/audit">Administrative audit</a>
 			}
 			<form action="/logout" method="post">
@@ -102,4 +102,8 @@ templ RoleAccess(title string) {
 		@PageHeader(title+" access", "This account has permission to use the "+title+" area.")
 		<a class="btn" href="/account">Back to account</a>
 	}
+}
+
+templ StaffPassword() {
+	<label>Current password <input class="input" type="password" name="staff_password" autocomplete="current-password" required/></label>
 }

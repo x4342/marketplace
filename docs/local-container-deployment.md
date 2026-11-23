@@ -106,3 +106,8 @@ In Portainer, set `MARKETPLACE_DB_VOLUME` to the recovered volume name and `MARK
 M11 stores listing and draft JPEGs in PostgreSQL. The existing `marketplace_marketplace-data` volume contains the images and the application's other data. Keep the same volume on upgrades. The app image stays read-only and the stack uses the existing port mappings. Include the database volume in the documented backup and recovery process.
 
 Migration `00010` raises existing JPEG column limits without rewriting media. If a new upload exceeds the former 3 MiB limit, PostgreSQL refuses a schema downgrade to that limit. Keep version 10 in place for a compatible app rollback or use the pre-upgrade backup procedure when the older schema is required. See the [media guide](listing-media.md).
+
+
+## M12 profiles and administrator provisioning
+
+The existing PostgreSQL volume stores profile biographies, sanitized avatars, and role history. Review the [legacy role and bootstrap guide](authorization.md) before upgrading. Bootstrap is a separate local interactive action after migration, and the normal stack startup never assigns an administrator.

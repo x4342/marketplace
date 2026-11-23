@@ -2,9 +2,11 @@ package web
 
 import (
 	"crypto/subtle"
+	"encoding/json"
 	"errors"
 	"net/http"
 
+	"github.com/x4342/marketplace/internal/authz"
 	"github.com/x4342/marketplace/internal/db"
 	"github.com/x4342/marketplace/internal/identity"
 	"github.com/x4342/marketplace/web/templates"
@@ -41,8 +43,9 @@ func (a app) mountIdentity(mux *http.ServeMux, accounts *identity.Service) {
 		http.Redirect(w, r, "/account", http.StatusSeeOther)
 	})
 	mux.HandleFunc("POST /logout", pages.logout)
-	mux.HandleFunc("GET /admin/moderation", pages.rolePage("Moderation", func(s db.ActiveSessionRow) bool { return s.Moderator }))
-	mux.HandleFunc("GET /admin/finance", pages.rolePage("Finance", func(s db.ActiveSessionRow) bool { return s.FinanceAdmin }))
+	mux.HandleFunc("GET /ops/health", pages.platformHealth)
+	mux.HandleFunc("GET /admin/moderation", pages.rolePage("Moderation", func(s db.ActiveSessionRow) bool { return authz.Allows(s.Role, authz.Staff) }))
+	mux.HandleFunc("GET /admin/finance", pages.rolePage("Finance", func(s db.ActiveSessionRow) bool { return authz.Allows(s.Role, authz.Staff) }))
 }
 
 func (p identityPages) submit(w http.ResponseWriter, r *http.Request, form templates.AuthForm) {
@@ -95,7 +98,7 @@ func (p identityPages) submit(w http.ResponseWriter, r *http.Request, form templ
 func (p identityPages) account(w http.ResponseWriter, r *http.Request) {
 	session, ok := p.requireSession(w, r)
 	if ok {
-		p.render(w, r, http.StatusOK, templates.Account(session.Username, csrfFor(w, r), session.Moderator, session.FinanceAdmin))
+		p.render(w, r, http.StatusOK, templates.Account(session.Username, csrfFor(w, r), authz.Allows(session.Role, authz.Staff)))
 	}
 }
 
@@ -192,4 +195,41 @@ func setPrivateCookie(w http.ResponseWriter, r *http.Request, name, value string
 		Secure:   r.TLS != nil,
 		SameSite: http.SameSiteStrictMode,
 	})
+}
+
+func (p identityPages) requireFreshStaff(w http.ResponseWriter, r *http.Request, actor db.ActiveSessionRow) bool {
+	if len(r.PostForm["staff_password"]) != 1 {
+		p.render(w, r, 403, templates.Problem("Confirm your password", "Return to the action form and enter your current password."))
+		return false
+	}
+	err := p.accounts.ConfirmStaff(r.Context(), actor, r.PostForm.Get("staff_password"))
+	switch {
+	case err == nil:
+		return true
+	case errors.Is(err, identity.ErrLimited):
+		w.Header().Set("Retry-After", "60")
+		p.render(w, r, 429, templates.Problem("Try again shortly", "Wait a minute before attempting password confirmation again."))
+	case errors.Is(err, identity.ErrInvalid):
+		p.render(w, r, 403, templates.Problem("Password confirmation failed", "Return to the action form and enter your current password."))
+	default:
+		p.unavailable(w, r)
+	}
+	return false
+}
+
+func (p identityPages) platformHealth(w http.ResponseWriter, r *http.Request) {
+	actor, ok := p.requireSession(w, r)
+	if !ok {
+		return
+	}
+	if !authz.Allows(actor.Role, authz.Platform) {
+		p.render(w, r, 403, templates.Problem("Access denied", "This endpoint requires an administrator."))
+		return
+	}
+	status := p.app.status(r.Context())
+	w.Header().Set("Content-Type", "application/json")
+	if !status.DatabaseReady {
+		w.WriteHeader(503)
+	}
+	_ = json.NewEncoder(w).Encode(map[string]bool{"database_ready": status.DatabaseReady, "worker_active": status.WorkerActive})
 }

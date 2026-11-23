@@ -57,7 +57,7 @@ func TestAdminPostgres(t *testing.T) {
 	second, secondID := register("appealmod")
 	finance, financeID := register("finance")
 	outsider, _ := register("other")
-	if _, err := pool.Exec(ctx, "INSERT INTO role_assignments(user_id,role) VALUES ($1,'moderator'),($2,'moderator'),($3,'finance_admin')", modID, secondID, financeID); err != nil {
+	if _, err := pool.Exec(ctx, "INSERT INTO role_assignments(user_id,role) VALUES ($1,'moderator'),($2,'moderator'),($3,'moderator')", modID, secondID, financeID); err != nil {
 		t.Fatal(err)
 	}
 	var listing pgtype.UUID
@@ -82,7 +82,7 @@ func TestAdminPostgres(t *testing.T) {
 	moderator.call("GET", thread, nil, 404)
 	decision := func(client *testClient, path, action string, want int) {
 		t.Helper()
-		client.post(path, url.Values{"action": {action}, "reason": {"Synthetic administrative decision"}}, want)
+		client.post(path, url.Values{"action": {action}, "reason": {"Synthetic administrative decision"}, "staff_password": {"isolated moderation fixture password"}}, want)
 	}
 	decision(moderator, chat+"/decision", "restrict", 303)
 	merchant.post(thread+"/send", url.Values{"message": {"Blocked content"}}, 403)
@@ -100,7 +100,7 @@ func TestAdminPostgres(t *testing.T) {
 	if err := pool.QueryRow(ctx, "SELECT id FROM content_reports WHERE subject_user_id=$1", merchantID).Scan(&userCase); err != nil {
 		t.Fatal(err)
 	}
-	finance.call("GET", "/admin/content", nil, 403)
+	outsider.call("GET", "/admin/content", nil, 403)
 	listingDecision := "/admin/content/" + listingCase.String() + "/decision"
 	decision(moderator, listingDecision, "restrict", 303)
 	buyer.call("GET", product, nil, 404)
@@ -137,7 +137,7 @@ func TestAdminPostgres(t *testing.T) {
 	private := "/disputes/" + dispute.String()
 	admin := "/admin" + private
 	outsider.call("GET", private, nil, 404)
-	finance.call("GET", admin, nil, 403)
+	outsider.call("GET", admin, nil, 403)
 	finance.call("GET", orderPath(paid), nil, 404)
 	outsider.post(private+"/evidence", url.Values{"kind": {"evidence"}, "body": {"Injected evidence"}}, 404)
 	merchant.post(private+"/evidence", url.Values{"kind": {"evidence"}, "body": {"Synthetic dispatch evidence"}}, 303)
@@ -145,8 +145,8 @@ func TestAdminPostgres(t *testing.T) {
 	if strings.Contains(evidence, "Private fictional shipping marker") || !strings.Contains(evidence, "Synthetic dispatch evidence") || !strings.Contains(evidence, "Dispatch recorded.") || strings.Contains(evidence, "TEST-013") {
 		t.Fatal("dispute evidence not scoped or shipping spilled into case")
 	}
-	decision(finance, admin+"/decision", "release", 403)
-	decision(moderator, "/admin/payment-adjustments/"+paid.String(), "refund", 403)
+	decision(outsider, admin+"/decision", "release", 403)
+	decision(outsider, "/admin/payment-adjustments/"+paid.String(), "refund", 403)
 	decision(finance, "/admin/payment-adjustments/"+paid.String(), "refund", 409)
 
 	balances := func(available, held, reserved int64) {
@@ -194,7 +194,7 @@ func TestAdminPostgres(t *testing.T) {
 	key := identity.NewToken()
 	r := merchant.post("/payouts", url.Values{"key": {key}, "amount": {"5.00"}, "currency": {"EUR"}, "scenario": {"success"}}, 303)
 	payoutPath := "/admin" + strings.TrimSuffix(r.Header().Get("Location"), "?created=1") + "/action"
-	decision(moderator, payoutPath, "review", 403)
+	decision(outsider, payoutPath, "review", 403)
 	decision(finance, payoutPath, "review", 303)
 	decision(finance, payoutPath, "hold", 303)
 	decision(finance, payoutPath, "approve", 409)
@@ -203,12 +203,11 @@ func TestAdminPostgres(t *testing.T) {
 	decision(finance, payoutPath, "lift_hold", 303)
 	balances(1900, 0, 0)
 
-	modAudit := moderator.call("GET", "/admin/audit", nil, 200).Body.String()
-	financeAudit := finance.call("GET", "/admin/audit", nil, 200).Body.String()
-	if !strings.Contains(modAudit, "dispute · view") || strings.Contains(modAudit, "payouts · denied") ||
-		!strings.Contains(financeAudit, "payouts · denied") || strings.Contains(financeAudit, "dispute · view") {
-		t.Fatal("administrative audit role filter incorrect")
+	staffAudit := moderator.call("GET", "/admin/audit", nil, 200).Body.String()
+	if !strings.Contains(staffAudit, "dispute · view") || !strings.Contains(staffAudit, "payouts · denied") {
+		t.Fatal("staff audit did not include both authorized areas")
 	}
+	outsider.call("GET", "/admin/audit", nil, 403)
 	if _, err := pool.Exec(ctx, "UPDATE admin_audit_events SET reason='rewrite'"); err == nil {
 		t.Fatal("audit history mutable")
 	}

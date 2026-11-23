@@ -41,3 +41,9 @@ func (l *limiter) admit(action, username string) (func(), bool) {
 		return nil, false
 	}
 }
+
+func (l *limiter) forgive(action, username string) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	delete(l.attempts, sha256.Sum256([]byte(action+":"+username)))
+}

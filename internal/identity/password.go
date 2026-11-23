@@ -24,9 +24,11 @@ func NormalizeUsername(username string) string {
 	return strings.ToLower(strings.TrimSpace(username))
 }
 
+func ValidUsername(username string) bool { return validUsername.MatchString(username) }
+
 func Validate(username, password string) bool {
 	length := utf8.RuneCountInString(password)
-	return validUsername.MatchString(username) && utf8.ValidString(password) && length >= 12 && length <= 128
+	return ValidUsername(username) && utf8.ValidString(password) && length >= 12 && length <= 128
 }
 
 func passwordHash(password string) []byte {

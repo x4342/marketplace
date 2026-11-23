@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/x4342/marketplace/internal/authz"
 	"github.com/x4342/marketplace/internal/db"
 )
 
@@ -93,6 +94,13 @@ func (s Service) Decide(ctx context.Context, moderator, id pgtype.UUID, action, 
 		return ErrInvalid
 	}
 	return s.tx(ctx, func(q *db.Queries) error {
+		role, err := q.EffectiveRole(ctx, moderator)
+		if err != nil {
+			return err
+		}
+		if !authz.Allows(role, authz.Staff) {
+			return ErrConflict
+		}
 		row, err := q.LockReview(ctx, id)
 		if err != nil {
 			return err
@@ -108,6 +116,13 @@ func (s Service) Decide(ctx context.Context, moderator, id pgtype.UUID, action, 
 			}
 			count, err = q.ResolveReviewReports(ctx, id)
 		case "uphold", "restore":
+			hider, err := q.LatestReviewHider(ctx, id)
+			if err != nil {
+				return err
+			}
+			if hider == moderator {
+				return ErrConflict
+			}
 			if !row.Hidden {
 				return ErrConflict
 			}

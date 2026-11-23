@@ -1,6 +1,3 @@
--- name: ContentRole :one
-SELECT EXISTS(SELECT 1 FROM role_assignments WHERE user_id=$1 AND role='moderator')::boolean;
-
 -- name: PostAdminAudit :exec
 INSERT INTO admin_audit_events(actor_id,area,subject_id,action,reason) VALUES($1,$2,$3,$4,$5);
 

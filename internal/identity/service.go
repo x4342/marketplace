@@ -36,7 +36,7 @@ func New(pool *pgxpool.Pool) *Service {
 }
 
 func (s *Service) Register(ctx context.Context, username, password string) (Enrollment, error) {
-	if !Validate(username, password) {
+	if username == "admin" || !Validate(username, password) {
 		return Enrollment{}, ErrInvalid
 	}
 	release, ok := s.limit.admit("register", username)
@@ -186,14 +186,11 @@ func Owns(userID, ownerID pgtype.UUID) bool {
 }
 
 func enroll(ctx context.Context, queries *db.Queries, userID pgtype.UUID, event string) (Enrollment, error) {
-	result := Enrollment{Session: NewToken(), Codes: make([]string, 5)}
-	for i := range result.Codes {
-		code := NewToken()
-		if err := queries.StoreRecoveryCode(ctx, db.StoreRecoveryCodeParams{UserID: userID, TokenHash: tokenHash(code)}); err != nil {
-			return Enrollment{}, err
-		}
-		result.Codes[i] = code
+	codes, err := issueRecoveryCodes(ctx, queries, userID)
+	if err != nil {
+		return Enrollment{}, err
 	}
+	result := Enrollment{Session: NewToken(), Codes: codes}
 	if err := queries.CreateSession(ctx, db.CreateSessionParams{UserID: userID, TokenHash: tokenHash(result.Session)}); err != nil {
 		return Enrollment{}, err
 	}

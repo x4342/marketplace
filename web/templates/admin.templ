@@ -124,6 +124,7 @@ templ DisputePage(d DisputeData) {
 				<form class="card status-card seller-panel seller-form" method="post" action={ templ.SafeURL("/admin/disputes/" + d.Record.ID.String() + "/decision") }>
 					<input type="hidden" name="csrf" value={ d.CSRF }/>
 					<label>Decision reason <textarea class="textarea" name="reason" maxlength="1000" required rows="3"></textarea></label>
+					@StaffPassword()
 					<div class="seller-actions">
 						if d.Record.Status=="open" {
 							<button class="btn" name="action" value="hold">Keep funds held</button>

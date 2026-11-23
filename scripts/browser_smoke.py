@@ -511,6 +511,7 @@ def verify_disputes(browser, base_url):
     record.click()
     expect(buyer.get_by_role("region", name="Restricted evidence")).to_contain_text("Synthetic browser evidence")
     buyer.get_by_label("Decision reason").fill("Sandbox refund verified in browser")
+    buyer.get_by_label("Current password").fill("isolated orders fixture password")
     buyer.get_by_role("button", name="Confirm simulated refund").click()
     expect(buyer.get_by_role("region", name="Case summary")).to_contain_text("Status: refunded")
     context.close()

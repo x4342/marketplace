@@ -21,16 +21,17 @@ build: generate assets
 	mkdir -p bin
 	go build -mod=mod -o bin/web ./cmd/web
 	go build -mod=mod -o bin/worker ./cmd/worker
+	go build -mod=mod -o bin/marketplace-admin ./cmd/marketplace-admin
 
 test: generate assets
 	go test -mod=mod -race ./...
 
 fmt:
-	gofmt -w cmd internal/config internal/finance internal/http internal/media internal/moderation internal/orders internal/platform internal/reviews internal/seller web/static
+	gofmt -w cmd internal/authz internal/config internal/finance internal/http internal/identity internal/media internal/moderation internal/orders internal/platform internal/reviews internal/seller web/static
 	$(TEMPL) fmt web/templates
 
 lint: generate assets
-	test -z "$$(gofmt -l cmd internal/config internal/finance internal/http internal/media internal/moderation internal/orders internal/platform internal/reviews internal/seller web/static)"
+	test -z "$$(gofmt -l cmd internal/authz internal/config internal/finance internal/http internal/identity internal/media internal/moderation internal/orders internal/platform internal/reviews internal/seller web/static)"
 	go vet -mod=mod ./...
 
 migrate:
