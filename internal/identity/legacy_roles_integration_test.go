@@ -43,7 +43,7 @@ func TestLegacyRolesPostgres(t *testing.T) {
 	q := db.New(pool)
 	password := NewToken()
 	hash := passwordHash(password)
-	for _, name := range []string{"admin", "legacy_finance", "legacy_content", "legacy_both"} {
+	for _, name := range []string{"admin", "legacy_finance", "legacy_content", "legacy_both", "legacy_normal"} {
 		if _, err := q.CreateUser(ctx, db.CreateUserParams{Username: name, PasswordHash: hash}); err != nil {
 			t.Fatal(err)
 		}
@@ -86,6 +86,9 @@ func TestLegacyRolesPostgres(t *testing.T) {
 	}
 	if _, err := pool.Exec(ctx, "DELETE FROM legacy_role_assignments"); err == nil {
 		t.Fatal("legacy grants were mutable")
+	}
+	if _, err := pool.Exec(ctx, "DELETE FROM users WHERE username='legacy_normal'"); err != nil {
+		t.Fatalf("unrelated account deletion was blocked: %v", err)
 	}
 	svc := New(pool)
 	if _, err := svc.BootstrapAdmin(ctx, password, "", false); !errors.Is(err, ErrAdminNameInUse) {

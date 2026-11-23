@@ -41,7 +41,9 @@ BEGIN
 END;
 $$;
 -- +goose StatementEnd
-CREATE TRIGGER immutable_legacy_roles BEFORE INSERT OR UPDATE OR DELETE OR TRUNCATE
+CREATE TRIGGER immutable_legacy_roles BEFORE INSERT OR UPDATE OR DELETE
+ON legacy_role_assignments FOR EACH ROW EXECUTE FUNCTION reject_role_history_change();
+CREATE TRIGGER immutable_legacy_roles_truncate BEFORE TRUNCATE
 ON legacy_role_assignments FOR EACH STATEMENT EXECUTE FUNCTION reject_role_history_change();
 CREATE TRIGGER immutable_role_changes BEFORE UPDATE OR DELETE OR TRUNCATE
 ON role_change_events FOR EACH STATEMENT EXECUTE FUNCTION reject_role_history_change();
@@ -64,6 +66,7 @@ END;
 $$;
 -- +goose StatementEnd
 DROP TRIGGER immutable_legacy_roles ON legacy_role_assignments;
+DROP TRIGGER immutable_legacy_roles_truncate ON legacy_role_assignments;
 DROP TRIGGER immutable_role_changes ON role_change_events;
 DROP FUNCTION reject_role_history_change();
 DROP TABLE role_change_events;
