@@ -1,10 +1,10 @@
-# M12 authorization and local administrator setup
+# Authorization, administrator bootstrap and recovery
 
 | Effective role | Permissions |
 | --- | --- |
 | `user` | Own profile, listings, orders, messages, reviews, favorites, and earnings. Every registration starts here. |
 | `moderator` | User permissions plus content cases, dispute and appeal queues, payout review and decisions, simulated adjustments and reconciliation, and staff audit. |
-| `admin` | Moderator permissions plus the platform capability. M12 uses it for protected system health and local role operations. Platform dashboard and category management UI are outside M12. |
+| `admin` | Moderator permissions plus the platform capability. Use the administrator dashboard, system health, product category management and authenticated role management. |
 
 HTTP guards and service transactions use the effective role, with separate ownership and conflict-of-interest checks. Staff enter their current password on every financial mutation, including hold, release, refund, payout and reconciliation. Password confirmations are rate-limited. An administrator or moderator cannot act on their own payout or adjust a transaction they participated in. Appeal reviews require a different staff member from the original decision maker. Platform-only routes check the admin capability server-side.
 
@@ -28,7 +28,7 @@ The archived grants and role-change events are protected from normal update or d
 
 ## Bootstrap after the migration
 
-Run on the Docker host or in Portainer's interactive container console with the matching M12 image. The normal app startup never runs this tool. The tool requires a terminal with hidden secret entry. Store the one-time recovery codes shown by successful bootstrap in a password manager.
+Run on the Docker host or in Portainer's interactive container console with the installed M12 or newer image. The normal app startup never runs this tool. The tool requires a terminal with hidden secret entry. Store the one-time recovery codes shown by successful bootstrap in a password manager.
 
 ```sh
 docker compose -p marketplace -f compose.portainer.yaml exec web /app/marketplace-admin bootstrap
@@ -54,10 +54,14 @@ docker compose -p marketplace -f compose.portainer.yaml exec web /app/marketplac
 docker compose -p marketplace -f compose.portainer.yaml exec web /app/marketplace-admin set-role USERNAME user
 ```
 
-For password recovery, use `/recover` with a saved one-time code. Recovery rotates sessions and returns replacement codes. If the original administrator's role was removed while the bootstrap marker remains, use `restore-admin` with the original administrator's current password. The tool can only restore the original account. If password and recovery codes are both unavailable, use a trusted database backup or an independently authorized recovery procedure.
+For password recovery, use `/recover` with a saved one-time code. Recovery rotates sessions and returns replacement codes. If the original administrator's role was removed while the bootstrap marker remains, use `restore-admin` with the original administrator's current password. The tool can restore the original account if there are no active administrators. If an administrator remains available, ask them to restore the role from Users and roles. If password and recovery codes are both unavailable, use a trusted database backup or an independently authorized recovery procedure.
 
 ```sh
 docker compose -p marketplace -f compose.portainer.yaml exec web /app/marketplace-admin restore-admin
 ```
 
 Reference [OWASP reauthentication guidance](https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html#reauthentication-after-risk-events).
+
+## Dashboard role management
+
+Open **Account → Administrator dashboard → Users and roles**. Find the account, expand **Change role**, select the target role, enter your current password, and confirm. Changes revoke the affected account's sessions and append an immutable audit event. The dashboard serializes assignments and rejects removal of the last assigned administrator. The original `admin` username remains reserved even if that account is later demoted.

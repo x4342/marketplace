@@ -3,21 +3,7 @@ package templates
 type Status struct {
 	DatabaseReady bool
 	WorkerActive  bool
-}
-
-templ Overview(status Status) {
-	@AppShell("Overview") {
-		@PageHeader("Overview", "Check the local marketplace services.")
-		<section class="card status-card" aria-labelledby="status-heading">
-			<div class="status-header">
-				<h2 id="status-heading">System status</h2>
-				<form action="/" method="get" hx-get="/fragments/status" hx-target="#service-status" hx-swap="outerHTML" hx-disabled-elt="find button">
-					<button type="submit" class="btn btn-sm">Refresh status</button>
-				</form>
-			</div>
-			@SystemStatus(status)
-		</section>
-	}
+	LastHeartbeat string
 }
 
 templ SystemStatus(status Status) {
@@ -45,6 +31,9 @@ templ SystemStatus(status Status) {
 					<dd>Status unavailable</dd>
 				}
 			</div>
+			if status.LastHeartbeat != "" {
+				<div><dt>Last heartbeat</dt><dd>{ status.LastHeartbeat }</dd></div>
+			}
 		</dl>
 		if !status.DatabaseReady {
 			<p class="status-help">Start the local PostgreSQL service and apply the migrations, then refresh.</p>

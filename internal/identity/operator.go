@@ -11,6 +11,8 @@ import (
 )
 
 var (
+	ErrLastAdministrator = errors.New("Keep at least one administrator. Assign a second administrator before removing this role.")
+	ErrRoleChanged       = errors.New("The account role changed. Open the current role list and try again.")
 	ErrBootstrapComplete = errors.New("administrator bootstrap is already reserved or complete")
 	ErrAdminNameInUse    = errors.New("admin username already exists; use explicit verified claim")
 	ErrOperator          = errors.New("administrator or operator action is unavailable")
@@ -211,4 +213,45 @@ func setRole(ctx context.Context, q *db.Queries, actor, subject pgtype.UUID, rol
 		return err
 	}
 	return q.RecordRoleChange(ctx, db.RecordRoleChangeParams{ActorID: actor, SubjectID: subject, OldRole: old, NewRole: role, Action: action})
+}
+
+// ChangeRole verifies both the operator and the requested previous role under
+// the same lock used by bootstrap, local grants and role restoration.
+func (s *Service) ChangeRole(ctx context.Context, actor pgtype.UUID, username, previous, next string) error {
+	if !ValidUsername(username) || !authz.ValidRole(previous) || !authz.ValidRole(next) {
+		return ErrOperator
+	}
+	return s.inTx(ctx, func(q *db.Queries) error {
+		if err := q.LockRoleAdministration(ctx); err != nil {
+			return err
+		}
+		role, err := q.EffectiveRole(ctx, actor)
+		if err != nil {
+			return err
+		}
+		if !authz.Allows(role, authz.Platform) {
+			return ErrOperator
+		}
+		subject, err := q.UserCredential(ctx, username)
+		if err != nil {
+			return err
+		}
+		current, err := q.EffectiveRole(ctx, subject.ID)
+		if err != nil {
+			return err
+		}
+		if current != previous {
+			return ErrRoleChanged
+		}
+		if current == authz.Admin && next != authz.Admin {
+			admins, err := q.AdministratorCount(ctx)
+			if err != nil {
+				return err
+			}
+			if admins < 2 {
+				return ErrLastAdministrator
+			}
+		}
+		return setRole(ctx, q, actor, subject.ID, next, "dashboard_assignment")
+	})
 }

@@ -65,6 +65,12 @@ jobs:
           createdb --maintenance-db "$DATABASE_URL" marketplace_legacy_ci
           export MARKETPLACE_LEGACY_ROLE_TEST_DATABASE_URL="${DATABASE_URL%/*}/marketplace_legacy_ci?sslmode=disable"
           go test -mod=readonly -race ./internal/identity -run TestLegacyRolesPostgres -v
+      - name: Test administrator controls on a separate database
+        run: |
+          createdb --maintenance-db "$DATABASE_URL" marketplace_platform_ci
+          export DATABASE_URL="${DATABASE_URL%/*}/marketplace_platform_ci?sslmode=disable"
+          make migrate fixtures
+          MARKETPLACE_PLATFORM_TEST_DATABASE_URL="$DATABASE_URL" go test -mod=readonly -race ./internal/http -run TestPlatformPostgres -v
       - run: bash scripts/smoke.sh
       - run: make reconcile
       - name: Restore populated PostgreSQL fixtures

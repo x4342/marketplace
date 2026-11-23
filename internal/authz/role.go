@@ -24,3 +24,7 @@ func Allows(role string, capability Capability) bool {
 		return false
 	}
 }
+
+func ValidRole(role string) bool {
+	return role == User || role == Moderator || role == Admin
+}

@@ -31,8 +31,17 @@ wait_for_page() {
 
 wait_for_page /health/live ok
 wait_for_page /health/ready ready
-wait_for_page /fragments/status 'No recent heartbeat'
+wait_for_page /discover 'Discover'
+worker_active() {
+  psql "$DATABASE_URL" -XAtc "SELECT EXISTS (SELECT 1 FROM worker_heartbeat WHERE observed_at >= now() - interval '45 seconds')" | grep -qx t
+}
 ./bin/worker >bin/smoke/worker.log 2>&1 &
 worker_pid=$!
-wait_for_page /fragments/status '<dd>Active</dd>'
+for _ in {1..30}; do
+  if worker_active; then
+    break
+  fi
+  sleep 1
+done
+worker_active
 python scripts/browser_smoke.py

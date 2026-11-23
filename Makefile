@@ -27,11 +27,11 @@ test: generate assets
 	go test -mod=mod -race ./...
 
 fmt:
-	gofmt -w cmd internal/authz internal/config internal/finance internal/http internal/identity internal/media internal/moderation internal/orders internal/platform internal/reviews internal/seller web/static
+	gofmt -w cmd internal/administration internal/authz internal/config internal/finance internal/http internal/identity internal/media internal/moderation internal/orders internal/platform internal/reviews internal/seller web/static
 	$(TEMPL) fmt web/templates
 
 lint: generate assets
-	test -z "$$(gofmt -l cmd internal/authz internal/config internal/finance internal/http internal/identity internal/media internal/moderation internal/orders internal/platform internal/reviews internal/seller web/static)"
+	test -z "$$(gofmt -l cmd internal/administration internal/authz internal/config internal/finance internal/http internal/identity internal/media internal/moderation internal/orders internal/platform internal/reviews internal/seller web/static)"
 	go vet -mod=mod ./...
 
 migrate:

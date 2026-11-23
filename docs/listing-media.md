@@ -19,3 +19,5 @@ The reusable `internal/media` package owns byte, dimension, crop and output vali
 New photos use the existing `listing_drafts.image_jpeg` and `listing_images.image_jpeg` columns. Migration `00010` widens the size constraints without replacing bytes, IDs, or image references. Historical JPEGs remain byte-for-byte and use square center framing in catalog, listing detail, previews and seller management. A seller can replace one by saving and publishing a new photo. Existing ownership, draft revision, and publication transactions continue to apply. Order snapshots are unaffected.
 
 The existing PostgreSQL volume persists finalized images and draft media across app replacement. The Compose stack requires no new mounts or ports. Use the normal private database backup and recovery procedure.
+
+Profile avatars share this processing pipeline. Migration 00013 leaves media columns and image URLs in place when categories change. The deployment verification compares original and recreated-container responses for both images and avatars. [M13 verification](platform-administration.md)
