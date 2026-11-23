@@ -1,0 +1,76 @@
+package templates
+
+import (
+	"context"
+	"net/url"
+	"strconv"
+
+	"github.com/x4342/marketplace/internal/db"
+)
+
+type searchContextKey struct{}
+type headerSearchState struct{ Query, Mode string }
+
+func WithHeaderSearch(ctx context.Context, query, mode string) context.Context {
+	return context.WithValue(ctx, searchContextKey{}, headerSearchState{Query: query, Mode: mode})
+}
+
+func currentSearch(ctx context.Context) headerSearchState {
+	state, _ := ctx.Value(searchContextKey{}).(headerSearchState)
+	return state
+}
+
+templ HeaderSearch(state headerSearchState) {
+	<form class="header-search" role="search" method="get" action="/discover" aria-label="Marketplace search">
+		<label class="sr-only" for="global-query">Search marketplace</label>
+		<input class="input" id="global-query" type="search" name="q" value={ state.Query } placeholder="Search marketplace" maxlength="120"/>
+		<label class="sr-only" for="global-search-mode">Search in</label>
+		<select class="select" id="global-search-mode" name="search">
+			<option value="products" selected?={ state.Mode != "users" }>Products</option>
+			<option value="users" selected?={ state.Mode == "users" }>Users</option>
+		</select>
+		<button class="btn" type="submit">Search</button>
+	</form>
+}
+
+func membersURL(query string, page int32) templ.SafeURL {
+	params := url.Values{"search": {"users"}, "q": {query}}
+	if page > 1 {
+		params.Set("page", strconv.Itoa(int(page)))
+	}
+	return templ.SafeURL("/discover?" + params.Encode())
+}
+
+templ MemberSearch(query, problem string, rows []db.SearchMembersRow, page int32, more bool) {
+	@AppShell("Find users") {
+		@PageHeader("Find users", "Search for a marketplace username.")
+		if problem != "" {
+			<p class="alert alert-warning" role="status">{ problem }</p>
+		} else if query == "" {
+			<p>Enter the beginning of a username in the header search.</p>
+		} else if len(rows) == 0 {
+			<p>No matching public profiles.</p>
+		}
+		<div class="platform-grid">
+			for _, row := range rows {
+				<article class="card status-card seller-panel">
+					@ProfileIdentity(row.Username)
+					if row.Summary != "" {
+						<p class="profile-bio">{ row.Summary }</p>
+					}
+				</article>
+			}
+		</div>
+		if query != "" {
+			<nav class="auth-links" aria-label="User search pages">
+				<a href="/discover?search=users">Clear search</a>
+				if page > 1 {
+					<a href={ membersURL(query, page-1) }>Previous page</a>
+				}
+				if more && page < 1000 {
+					<a href={ membersURL(query, page+1) }>Next page</a>
+				}
+			</nav>
+		}
+	}
+}

@@ -31,6 +31,10 @@ func (a app) mountCatalog(mux *http.ServeMux, queries *db.Queries, accounts *ide
 }
 
 func (p catalogPages) discover(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Query().Get("search") == "users" {
+		p.memberSearch(w, r)
+		return
+	}
 	p.renderCatalog(w, r, r.URL.Query(), templates.StorefrontData{})
 }
 
@@ -109,6 +113,7 @@ func (p catalogPages) renderCatalog(w http.ResponseWriter, r *http.Request, valu
 	if int64(filters.Page*catalog.PageSize) < results.Total {
 		results.Next = filters.Link(filters.Page + 1)
 	}
+	r = r.WithContext(templates.WithHeaderSearch(r.Context(), filters.Query.Keyword, "products"))
 	p.render(w, r, http.StatusOK, templates.Discover(results))
 }
 

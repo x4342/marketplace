@@ -26,3 +26,12 @@ ON CONFLICT (user_id) DO UPDATE SET bio=excluded.bio,
 
 -- name: OwnAvatar :one
 SELECT avatar_jpeg FROM user_profiles WHERE user_id=$1 AND avatar_jpeg IS NOT NULL;
+
+-- name: SearchMembers :many
+SELECT u.username, left(coalesce(p.bio,''), 180)::text AS summary
+FROM users u LEFT JOIN user_profiles p ON p.user_id=u.id
+WHERE u.username COLLATE "C" >= sqlc.arg(prefix)::text
+AND u.username COLLATE "C" < (sqlc.arg(prefix)::text || '{')
+AND NOT EXISTS (SELECT 1 FROM user_restrictions r WHERE r.user_id=u.id)
+ORDER BY u.username COLLATE "C"
+LIMIT 25 OFFSET sqlc.arg(page_offset)::integer;

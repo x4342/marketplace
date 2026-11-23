@@ -37,6 +37,7 @@ WITH seller_ratings AS (
     LEFT JOIN seller_ratings sr ON sr.seller_id=l.seller_id
     LEFT JOIN completed_sales cs ON cs.listing_id=l.id
     WHERE l.status = 'published'
+      AND NOT EXISTS (SELECT 1 FROM user_restrictions r WHERE r.user_id=l.seller_id)
       AND (NOT sqlc.arg(reviewed)::boolean OR EXISTS (SELECT 1 FROM reviews r WHERE r.listing_id=l.id AND NOT r.hidden))
       AND (sqlc.arg(min_rating)::smallint=0 OR (sr.review_count >= sqlc.arg(rating_sample)::bigint AND sr.rating >= sqlc.arg(min_rating)::smallint))
       AND (NOT sqlc.arg(saved_only)::boolean OR EXISTS (

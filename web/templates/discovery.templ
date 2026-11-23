@@ -216,7 +216,9 @@ templ Filters(data DiscoveryData) {
 		if data.Filters.Query.SavedOnly {
 			<input type="hidden" name="saved" value="1"/>
 		}
-		<label>Search <input class="input" type="search" name="q" value={ data.Filters.Query.Keyword } maxlength="120"/></label>
+		if data.Filters.Query.Keyword != "" {
+			<input type="hidden" name="q" value={ data.Filters.Query.Keyword }/>
+		}
 		<label>
 			Category
 			<select class="select" name="category">

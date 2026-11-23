@@ -685,3 +685,25 @@ body {
 .seller-form label.platform-confirm[hidden] {
   display: none;
 }
+
+.header-search {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: .375rem;
+  width: min(100%, 36rem);
+  min-width: 0;
+}
+
+.header-search .input {
+  width: 100%;
+  min-width: 0;
+}
+
+.header-search :is(.select, .input) {
+  min-height: 44px;
+}
+
+@media (min-width: 900px) {
+  .header-search { order: 1; }
+  .topbar-navigation { order: 2; }
+}
