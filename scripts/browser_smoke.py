@@ -420,7 +420,7 @@ def verify_messages(browser, base_url, listing_url):
     page.get_by_label("Message", exact=True).fill("Is this available for manual delivery?")
     page.get_by_role("button", name="Send message").click()
     expect(page.get_by_role("status")).to_contain_text("Message sent")
-    expect(page.get_by_text("Is this available for manual delivery?")).to_be_visible()
+    expect(page.get_by_role("region", name="Conversation messages").get_by_text("Is this available for manual delivery?")).to_be_visible()
     thread_url = page.url
     page.get_by_role("link", name="Inbox", exact=True).click()
     expect(page.get_by_role("link", name="Mobile seller fixture", exact=False)).to_be_visible()
@@ -435,7 +435,7 @@ def verify_messages(browser, base_url, listing_url):
     with thread.expect_response(lambda response: response.url.endswith("/entries")) as polled:
         thread.clock.fast_forward(31000)
     assert polled.value.ok
-    expect(thread.get_by_text("Is this available for manual delivery?")).to_be_visible()
+    expect(thread.get_by_role("region", name="Conversation messages").get_by_text("Is this available for manual delivery?")).to_be_visible()
     enhanced.close()
 
 

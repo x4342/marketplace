@@ -172,6 +172,7 @@ templ MessageThread(data ThreadData, updated string) {
 		if data.Thread.Blocked {
 			<p>Messages are paused for this conversation.</p>
 		} else {
+			<noscript><p>Send or copy your draft before switching conversations.</p></noscript>
 			<form class="seller-panel msg-form" method="post" action={ templ.SafeURL(data.Path() + "/send") }>
 				<input type="hidden" name="csrf" value={ data.CSRF }/>
 				<label for="message-body">Message</label>

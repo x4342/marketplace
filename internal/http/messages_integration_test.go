@@ -231,4 +231,18 @@ func TestDirectMessagesPostgres(t *testing.T) {
 		t.Fatal("restricted account leaked in member search")
 	}
 	guest.call("GET", "/users/"+bName, nil, 404)
+	if body := guest.call("GET", "/discover?q=keyboard&search=invalid", nil, 200).Body.String(); !strings.Contains(body, "Compact mechanical keyboard") {
+		t.Fatal("invalid search mode did not fall back to products")
+	}
+	if _, err := pool.Exec(ctx, "DELETE FROM user_restrictions WHERE user_id=(SELECT id FROM users WHERE username=$1)", bName); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `INSERT INTO messages (conversation_id,sender_id,body,sequence)
+		SELECT $1,u.id,'synthetic send-rate fixture',n FROM users u CROSS JOIN generate_series(2,30) n WHERE u.username=$2`, pathID, aName); err != nil {
+		t.Fatal(err)
+	}
+	limited := a.post(path+"/send", url.Values{"message": {"last draft fixture"}}, 429)
+	if limited.Header().Get("Retry-After") != "60" || !strings.Contains(limited.Body.String(), "last draft fixture") {
+		t.Fatal("send limit should offer a retry and preserve the draft")
+	}
 }
