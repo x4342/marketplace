@@ -151,7 +151,7 @@ templ PlatformUsers(rows []db.AdminUsersRow, actor, csrf, prefix string, page in
 								</select>
 							</label>
 							@StaffPassword()
-							<label><input type="checkbox" name="confirm" value="1" required/> Confirm role change and sign this account out.</label>
+							<label class="platform-toggle"><input type="checkbox" name="confirm" value="1" required/> Confirm role change and sign this account out.</label>
 							<button class="btn btn-primary">Save role</button>
 						</form>
 					</details>
@@ -242,8 +242,8 @@ templ CategoryForm(rows []db.AdminCategoriesRow, category administration.Categor
 			</select>
 		</label>
 		<label>Display order <input class="input" name="display_order" type="number" min="0" max="9999" value={ strconv.Itoa(int(category.DisplayOrder)) } required/></label>
-		<label><input type="checkbox" name="active" value="1" checked?={ category.Active }/> Available for new listings</label>
-		<label class="platform-confirm"><input type="checkbox" name="confirm" value="1" required/> Confirm category change.</label>
+		<label class="platform-toggle"><input type="checkbox" name="active" value="1" checked?={ category.Active }/> Available for new listings</label>
+		<label class="platform-toggle platform-confirm"><input type="checkbox" name="confirm" value="1" required/> Confirm category change.</label>
 		<div class="seller-actions">
 			<button class="btn btn-primary">Save category</button>
 			if category.ID.Valid {

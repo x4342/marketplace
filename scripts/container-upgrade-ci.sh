@@ -2,6 +2,10 @@
 set -euo pipefail
 
 # This job follows the clean Compose check on a disposable Actions runner.
+if [[ ${GITHUB_ACTIONS:-} != true || ${COMPOSE_PROJECT_NAME:-} != marketplace-ci ]]; then
+  echo "Run this verification only inside the disposable marketplace-ci Actions stack."
+  exit 1
+fi
 base_revision=ab45a203d55cd62f64ec7e973c09e4374480d4a2
 image_next=${MARKETPLACE_IMAGE:?}
 docker compose down
@@ -51,9 +55,11 @@ db -At <<'SQL' > "$scratch/snapshot.sql"
 SELECT format(
   'SELECT %L, count(*), md5(coalesce(string_agg(digest, %L ORDER BY digest), %L)) FROM (SELECT md5(to_jsonb(t)::text) AS digest FROM %I t) records;',
   name, '', '', name)
-FROM unnest(ARRAY['users','listings','listing_images','user_profiles','role_assignments',
+FROM unnest(ARRAY['users','listings','listing_images','user_profiles','role_assignments', 'role_change_events',
     'conversations','orders','order_items','shipping_details','digital_entitlements',
     'payment_observations','journal_entries','journal_lines']) AS names(name);
+SELECT $$SELECT 'categories', count(*), md5(coalesce(string_agg(digest, '' ORDER BY digest), ''))
+FROM (SELECT md5(to_jsonb(c)::text) AS digest FROM (SELECT slug,name,parent_slug FROM categories) c) records;$$;
 SQL
 db -At < "$scratch/snapshot.sql" > "$scratch/prior.snapshot"
 docker compose exec -T postgres pg_dump -Fc -U marketplace -d marketplace > "$scratch/marketplace.dump"

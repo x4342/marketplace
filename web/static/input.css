@@ -669,6 +669,19 @@ body {
   margin-bottom: 1rem;
 }
 
-.platform-confirm[hidden] {
+.topbar-navigation {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.seller-form label.platform-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 44px;
+}
+
+.seller-form label.platform-confirm[hidden] {
   display: none;
 }

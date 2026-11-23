@@ -66,6 +66,10 @@ Enter a password at the hidden prompt and store the displayed recovery codes pri
 ## 5. Verify the new installation
 
 ```sh
+pg=$(sudo docker ps -q --filter label=com.docker.compose.project=marketplace \
+  --filter label=com.docker.compose.service=postgres)
+test -n "$pg" && sudo docker exec "$pg" psql -XAt -U marketplace -d marketplace \
+  -c 'SELECT max(version_id) FROM goose_db_version WHERE is_applied'
 curl -fsS http://127.0.0.1:8080/health/live
 curl -fsS http://127.0.0.1:8080/health/ready
 curl -s -o /dev/null -w '%{http_code} %{redirect_url}\n' http://127.0.0.1:8080/
@@ -74,7 +78,7 @@ worker=$(sudo docker ps -q --filter label=com.docker.compose.project=marketplace
 test -n "$worker" && sudo docker exec "$worker" /app/container-health worker
 ```
 
-Expect `ok`, `ready`, a redirect to Discover, and a successful worker check. In Portainer, check that the migrator exited zero and PostgreSQL and the worker have no published host ports. Sign in, open `/admin`, and check the current heartbeat. Visit a listing and a profile with a known image. Sign out and confirm that Discover is available and `/admin` redirects to sign-in.
+Expect schema version `13`, `ok`, `ready`, a redirect to Discover, and a successful worker check. In Portainer, check that the migrator exited zero and PostgreSQL and the worker have no published host ports. Sign in, open `/admin`, and check the current heartbeat. Visit a listing and a profile with a known image. Sign out and confirm that Discover is available and `/admin` redirects to sign-in.
 
 ## Rollback with the verified archive
 
