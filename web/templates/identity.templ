@@ -11,8 +11,8 @@ type AuthForm struct {
 	Recovery    bool
 }
 
-templ Credentials(theme string, form AuthForm) {
-	@AppShell(form.Title, theme) {
+templ Credentials(form AuthForm) {
+	@AppShell(form.Title) {
 		@PageHeader(form.Title, "Use your marketplace username.")
 		<form class="card status-card auth-form" action={ templ.SafeURL(form.Path) } method="post">
 			if form.Error != "" {
@@ -52,8 +52,8 @@ templ Credentials(theme string, form AuthForm) {
 	}
 }
 
-templ RecoveryCodes(theme string, codes []string) {
-	@AppShell("Recovery codes", theme) {
+templ RecoveryCodes(codes []string) {
+	@AppShell("Recovery codes") {
 		@PageHeader("Save your recovery codes", "Store these codes privately. Each code can be used once. They are shown only here.")
 		<section class="card status-card auth-form" aria-label="Recovery codes">
 			<ul class="recovery-codes">
@@ -66,8 +66,8 @@ templ RecoveryCodes(theme string, codes []string) {
 	}
 }
 
-templ Account(theme, username, csrf string, moderator, finance bool) {
-	@AppShell("Account", theme) {
+templ Account(username, csrf string, moderator, finance bool) {
+	@AppShell("Account") {
 		@PageHeader("Account", "Signed in as "+username)
 		<section class="card status-card auth-form" aria-label="Account actions">
 			<a class="btn" href="/sell">Sell</a>
@@ -95,8 +95,8 @@ templ Account(theme, username, csrf string, moderator, finance bool) {
 	}
 }
 
-templ RoleAccess(theme, title string) {
-	@AppShell(title+" access", theme) {
+templ RoleAccess(title string) {
+	@AppShell(title + " access") {
 		@PageHeader(title+" access", "This account has permission to use the "+title+" area.")
 		<a class="btn" href="/account">Back to account</a>
 	}

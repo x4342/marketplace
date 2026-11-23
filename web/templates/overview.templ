@@ -5,8 +5,8 @@ type Status struct {
 	WorkerActive  bool
 }
 
-templ Overview(theme string, status Status) {
-	@AppShell("Overview", theme) {
+templ Overview(status Status) {
+	@AppShell("Overview") {
 		@PageHeader("Overview", "Check the local marketplace services.")
 		<section class="card status-card" aria-labelledby="status-heading">
 			<div class="status-header">

@@ -142,8 +142,8 @@ templ ReviewReasonForm(path, csrf, label, action string) {
 	</details>
 }
 
-templ PrivateReview(theme string, row db.PrivateReviewRow, author bool, csrf string, sent bool) {
-	@AppShell("Review details", theme) {
+templ PrivateReview(row db.PrivateReviewRow, author bool, csrf string, sent bool) {
+	@AppShell("Review details") {
 		@PageHeader("Review details", row.Title)
 		<section class="card status-card seller-panel" aria-label="Review details">
 			if sent {
@@ -168,8 +168,8 @@ templ PrivateReview(theme string, row db.PrivateReviewRow, author bool, csrf str
 	}
 }
 
-templ ReviewQueue(theme string, cases []ReviewCase, csrf string, page int32, more, updated bool) {
-	@AppShell("Review moderation", theme) {
+templ ReviewQueue(cases []ReviewCase, csrf string, page int32, more, updated bool) {
+	@AppShell("Review moderation") {
 		@PageHeader("Review moderation", "Decide reports and appeals on verified purchase reviews.")
 		if updated {
 			<p class="alert alert-success" role="status">Moderation decision recorded.</p>
@@ -209,8 +209,8 @@ templ ReviewQueue(theme string, cases []ReviewCase, csrf string, page int32, mor
 	}
 }
 
-templ SellerInsights(theme string, totals db.SellerActivityRow, gross []db.SellerGrossSalesRow) {
-	@AppShell("Seller insights", theme) {
+templ SellerInsights(totals db.SellerActivityRow, gross []db.SellerGrossSalesRow) {
+	@AppShell("Seller insights") {
 		@PageHeader("Seller insights", "Activity across your listings.")
 		<section class="card status-card seller-panel" aria-label="Seller activity">
 			<dl class="review-counts">

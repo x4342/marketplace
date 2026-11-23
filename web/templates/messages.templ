@@ -20,8 +20,8 @@ func (d ThreadData) Path() string {
 	return "/messages/" + d.Thread.ID.String()
 }
 
-templ Inbox(theme string, items []db.InboxRow, page int32, unread int64) {
-	@AppShell("Messages", theme) {
+templ Inbox(items []db.InboxRow, page int32, unread int64) {
+	@AppShell("Messages") {
 		@PageHeader("Messages", strconv.FormatInt(unread, 10)+" unread conversations")
 		<nav class="auth-links" aria-label="Inbox navigation"><a href="/notifications">Notifications</a></nav>
 		<div class="seller-panel">
@@ -42,8 +42,8 @@ templ Inbox(theme string, items []db.InboxRow, page int32, unread int64) {
 	}
 }
 
-templ Notifications(theme string, items []db.MessageNotificationsRow, orderNotices []db.UserOrderNotificationsRow, reviewNotices []db.ReviewNoticesRow, payoutNotices []db.UserPayoutNoticesRow, disputeNotices []db.UserDisputeNoticesRow, page int32) {
-	@AppShell("Notifications", theme) {
+templ Notifications(items []db.MessageNotificationsRow, orderNotices []db.UserOrderNotificationsRow, reviewNotices []db.ReviewNoticesRow, payoutNotices []db.UserPayoutNoticesRow, disputeNotices []db.UserDisputeNoticesRow, page int32) {
+	@AppShell("Notifications") {
 		@PageHeader("Notifications", "Updates to your conversations and orders.")
 		<nav class="auth-links" aria-label="Inbox navigation"><a href="/messages">Messages</a></nav>
 		<div class="seller-panel">
@@ -91,8 +91,8 @@ templ MessagePages(path string, page int32, hasMore bool) {
 	}
 }
 
-templ MessageThread(theme string, data ThreadData, updated string) {
-	@AppShell(data.Thread.Title, theme) {
+templ MessageThread(data ThreadData, updated string) {
+	@AppShell(data.Thread.Title) {
 		@PageHeader(data.Thread.Title, "Conversation with "+data.Thread.Peer)
 		<div class="msg-thread seller-panel">
 			<nav class="auth-links" aria-label="Conversation navigation">

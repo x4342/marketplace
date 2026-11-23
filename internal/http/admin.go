@@ -94,7 +94,7 @@ func (p adminPages) dispute(w http.ResponseWriter, r *http.Request, admin bool) 
 		p.failure(w, r, err)
 		return
 	}
-	p.render(w, r, 200, templates.DisputePage(theme(r), templates.DisputeData{
+	p.render(w, r, 200, templates.DisputePage(templates.DisputeData{
 		Record: row, History: history, Evidence: evidence, Appeals: appeals, Actor: actor.ID, Admin: admin,
 		CSRF: csrfFor(w, r), Updated: r.URL.Query().Get("updated") == "1",
 	}))
@@ -115,7 +115,7 @@ func (p adminPages) disputes(w http.ResponseWriter, r *http.Request) {
 	if more {
 		rows = rows[:30]
 	}
-	p.render(w, r, 200, templates.DisputesQueue(theme(r), rows, state, page, more))
+	p.render(w, r, 200, templates.DisputesQueue(rows, state, page, more))
 }
 
 func (p adminPages) evidence(w http.ResponseWriter, r *http.Request) {
@@ -206,7 +206,7 @@ func (p adminPages) myCases(w http.ResponseWriter, r *http.Request) {
 		}
 		cases = append(cases, templates.ContentAppealCard{Case: row, DecisionReason: reason})
 	}
-	p.render(w, r, 200, templates.MyContentCases(theme(r), cases, csrfFor(w, r), page, more, r.URL.Query().Get("appeal") == "sent"))
+	p.render(w, r, 200, templates.MyContentCases(cases, csrfFor(w, r), page, more, r.URL.Query().Get("appeal") == "sent"))
 }
 
 func (p adminPages) contentAppeal(w http.ResponseWriter, r *http.Request) {
@@ -236,7 +236,7 @@ func (p adminPages) contentQueue(w http.ResponseWriter, r *http.Request) {
 	if more {
 		rows = rows[:30]
 	}
-	p.render(w, r, 200, templates.ContentQueue(theme(r), rows, state, page, more))
+	p.render(w, r, 200, templates.ContentQueue(rows, state, page, more))
 }
 
 func (p adminPages) contentDetail(w http.ResponseWriter, r *http.Request) {
@@ -265,7 +265,7 @@ func (p adminPages) contentDetail(w http.ResponseWriter, r *http.Request) {
 		p.failure(w, r, err)
 		return
 	}
-	p.render(w, r, 200, templates.ContentDetail(theme(r), row, appeals, csrfFor(w, r), r.URL.Query().Get("updated") == "1"))
+	p.render(w, r, 200, templates.ContentDetail(row, appeals, csrfFor(w, r), r.URL.Query().Get("updated") == "1"))
 }
 
 func (p adminPages) contentDecision(w http.ResponseWriter, r *http.Request) {
@@ -300,7 +300,7 @@ func (p adminPages) audit(w http.ResponseWriter, r *http.Request) {
 	if more {
 		rows = rows[:30]
 	}
-	p.render(w, r, 200, templates.AuditPage(theme(r), rows, page, more))
+	p.render(w, r, 200, templates.AuditPage(rows, page, more))
 }
 
 func filterState(r *http.Request, choices ...string) string {
@@ -343,5 +343,5 @@ func (p adminPages) failure(w http.ResponseWriter, r *http.Request, err error) {
 	default:
 		p.log.Error("case operation failed")
 	}
-	p.render(w, r, status, templates.Problem(theme(r), title, strings.TrimSpace(detail)))
+	p.render(w, r, status, templates.Problem(title, strings.TrimSpace(detail)))
 }

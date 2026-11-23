@@ -84,8 +84,8 @@ templ OrderNotice(notice db.UserOrderNotificationsRow) {
 	</article>
 }
 
-templ OrdersIndex(theme string, actor pgtype.UUID, rows []db.UserOrdersRow, page int32, more bool) {
-	@AppShell("Orders", theme) {
+templ OrdersIndex(actor pgtype.UUID, rows []db.UserOrdersRow, page int32, more bool) {
+	@AppShell("Orders") {
 		@PageHeader("Orders", "Track your purchases and sales.")
 		<div class="seller-panel">
 			if len(rows) == 0 {
@@ -107,8 +107,8 @@ templ OrdersIndex(theme string, actor pgtype.UUID, rows []db.UserOrdersRow, page
 	}
 }
 
-templ CheckoutForm(theme string, listing db.PublicListingRow, csrf, key, region, address, problem string) {
-	@AppShell("Simulated checkout", theme) {
+templ CheckoutForm(listing db.PublicListingRow, csrf, key, region, address, problem string) {
+	@AppShell("Simulated checkout") {
 		@PageHeader("Simulated checkout", listing.Title)
 		<div class="seller-panel commerce-panel">
 			<p class="alert alert-info">Test checkout uses a simulated provider and test units.</p>
@@ -139,8 +139,8 @@ templ CheckoutForm(theme string, listing db.PublicListingRow, csrf, key, region,
 	}
 }
 
-templ OrderPage(theme string, d OrderData) {
-	@AppShell("Order", theme) {
+templ OrderPage(d OrderData) {
+	@AppShell("Order") {
 		@PageHeader(d.Order.Title, stateLabel(d.Order.State))
 		<div class="seller-panel commerce-panel">
 			<nav class="auth-links" aria-label="Order navigation"><a href="/orders">All orders</a><a href="/messages">Messages</a><a href="/notifications">Notifications</a></nav>
@@ -254,8 +254,8 @@ templ FulfillmentForm(d OrderData, action, field, label string, limit int) {
 	</form>
 }
 
-templ AssetForm(theme, id, title, csrf, problem string, saved bool) {
-	@AppShell("Private download", theme) {
+templ AssetForm(id, title, csrf, problem string, saved bool) {
+	@AppShell("Private download") {
 		@PageHeader("Private download", title)
 		if saved {
 			<p class="alert alert-success" role="status">Private download saved for future orders.</p>
@@ -273,8 +273,8 @@ templ AssetForm(theme, id, title, csrf, problem string, saved bool) {
 	}
 }
 
-templ OrderProblem(theme, title, detail string) {
-	@AppShell(title, theme) {
+templ OrderProblem(title, detail string) {
+	@AppShell(title) {
 		@PageHeader(title, detail)
 		<a class="btn" href="/orders">Open orders</a>
 	}

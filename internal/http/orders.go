@@ -46,7 +46,7 @@ func (p orderPages) index(w http.ResponseWriter, r *http.Request) {
 	if hasMore {
 		rows = rows[:30]
 	}
-	p.render(w, r, http.StatusOK, templates.OrdersIndex(theme(r), session.ID, rows, page, hasMore))
+	p.render(w, r, http.StatusOK, templates.OrdersIndex(session.ID, rows, page, hasMore))
 }
 
 func (p orderPages) checkout(w http.ResponseWriter, r *http.Request) {
@@ -64,7 +64,7 @@ func (p orderPages) checkout(w http.ResponseWriter, r *http.Request) {
 		p.failure(w, r, orders.ErrUnavailable)
 		return
 	}
-	p.render(w, r, http.StatusOK, templates.CheckoutForm(theme(r), listing, csrfFor(w, r), identity.NewToken(), "", "", ""))
+	p.render(w, r, http.StatusOK, templates.CheckoutForm(listing, csrfFor(w, r), identity.NewToken(), "", "", ""))
 }
 
 func (p orderPages) create(w http.ResponseWriter, r *http.Request) {
@@ -88,7 +88,7 @@ func (p orderPages) create(w http.ResponseWriter, r *http.Request) {
 			p.failure(w, r, queryErr)
 			return
 		}
-		p.render(w, r, http.StatusUnprocessableEntity, templates.CheckoutForm(theme(r), listing, csrfFor(w, r), key,
+		p.render(w, r, http.StatusUnprocessableEntity, templates.CheckoutForm(listing, csrfFor(w, r), key,
 			r.PostForm.Get("region"), r.PostForm.Get("address"), "Choose a supported region and enter a test shipping address up to 300 characters."))
 		return
 	}
@@ -164,7 +164,7 @@ func (p orderPages) detail(w http.ResponseWriter, r *http.Request) {
 		data.ReviewSaved = r.URL.Query().Get("review") == "saved"
 	}
 
-	p.render(w, r, http.StatusOK, templates.OrderPage(theme(r), data))
+	p.render(w, r, http.StatusOK, templates.OrderPage(data))
 }
 
 func (p orderPages) action(w http.ResponseWriter, r *http.Request) {
@@ -223,7 +223,7 @@ func (p orderPages) asset(w http.ResponseWriter, r *http.Request) {
 		p.failure(w, r, err)
 		return
 	}
-	p.render(w, r, http.StatusOK, templates.AssetForm(theme(r), id.String(), title, csrfFor(w, r), "", r.URL.Query().Get("saved") == "1"))
+	p.render(w, r, http.StatusOK, templates.AssetForm(id.String(), title, csrfFor(w, r), "", r.URL.Query().Get("saved") == "1"))
 }
 
 func (p orderPages) storeAsset(w http.ResponseWriter, r *http.Request) {
@@ -239,7 +239,7 @@ func (p orderPages) storeAsset(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := p.service.SetAsset(r.Context(), id, session.ID, r.PostForm.Get("payload")); err != nil {
 		if errors.Is(err, orders.ErrState) {
-			p.render(w, r, http.StatusUnprocessableEntity, templates.AssetForm(theme(r), id.String(), title, csrfFor(w, r), "Enter a nonempty UTF-8 test document up to 64 KiB.", false))
+			p.render(w, r, http.StatusUnprocessableEntity, templates.AssetForm(id.String(), title, csrfFor(w, r), "Enter a nonempty UTF-8 test document up to 64 KiB.", false))
 			return
 		}
 		p.failure(w, r, err)
@@ -260,16 +260,16 @@ func (p orderPages) authorized(w http.ResponseWriter, r *http.Request, limit int
 func (p orderPages) failure(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
-		p.render(w, r, http.StatusNotFound, templates.OrderProblem(theme(r), "Order resource unavailable", "Check the listing or open your orders."))
+		p.render(w, r, http.StatusNotFound, templates.OrderProblem("Order resource unavailable", "Check the listing or open your orders."))
 	case errors.Is(err, orders.ErrUnavailable):
-		p.render(w, r, http.StatusConflict, templates.OrderProblem(theme(r), "Listing unavailable for checkout", "Return to discovery and choose an available listing."))
+		p.render(w, r, http.StatusConflict, templates.OrderProblem("Listing unavailable for checkout", "Return to discovery and choose an available listing."))
 	case errors.Is(err, orders.ErrState):
-		p.render(w, r, http.StatusConflict, templates.OrderProblem(theme(r), "Order action unavailable", "Check the current order state, quote expiry, and required details."))
+		p.render(w, r, http.StatusConflict, templates.OrderProblem("Order action unavailable", "Check the current order state, quote expiry, and required details."))
 	case errors.Is(err, orders.ErrQuote):
-		p.render(w, r, http.StatusUnprocessableEntity, templates.OrderProblem(theme(r), "Simulated payment rejected", "The simulated payment did not match the saved quote."))
+		p.render(w, r, http.StatusUnprocessableEntity, templates.OrderProblem("Simulated payment rejected", "The simulated payment did not match the saved quote."))
 	default:
 		p.log.Error("order operation failed")
-		p.render(w, r, http.StatusServiceUnavailable, templates.OrderProblem(theme(r), "Orders unavailable", "Try again shortly."))
+		p.render(w, r, http.StatusServiceUnavailable, templates.OrderProblem("Orders unavailable", "Try again shortly."))
 	}
 }
 

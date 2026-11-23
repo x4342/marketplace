@@ -11,9 +11,15 @@ from urllib.parse import urlsplit
 from playwright.sync_api import expect, sync_playwright
 
 
+def assert_dark(page):
+    expect(page.locator("html")).to_have_attribute("data-theme", "dark")
+    expect(page.locator('meta[name="color-scheme"]')).to_have_attribute("content", "dark")
+    assert page.locator("html").evaluate("element => getComputedStyle(element).colorScheme") == "dark"
+
+
 def verify_layout(browser, base_url, width):
     context = browser.new_context(
-        viewport={"width": width, "height": 900}, java_script_enabled=False
+        viewport={"width": width, "height": 900}, java_script_enabled=False, color_scheme="light"
     )
     page = context.new_page()
     requests = []
@@ -27,35 +33,31 @@ def verify_layout(browser, base_url, width):
     page.keyboard.press("Enter")
     expect(page.get_by_role("main")).to_be_focused()
 
-    for theme in ("Dark", "Light"):
-        page.get_by_role("button", name=theme, exact=True).click()
-        page.reload()
-        expect(page.locator("html")).to_have_attribute("data-theme", theme.lower())
-        expect(page.get_by_role("button", name=theme, exact=True)).to_have_attribute(
-            "aria-pressed", "true"
-        )
-        viewport = page.locator("html").bounding_box()
-        status = page.get_by_role("region", name="System status").bounding_box()
-        assert viewport and status
-        assert viewport["width"] == width
-        assert status["x"] >= 0 and status["x"] + status["width"] <= width
-        assert page.locator("body").evaluate("""body => {
-            const context = document.createElement('canvas').getContext('2d');
-            const luminance = color => {
-                context.fillStyle = color;
-                context.fillRect(0, 0, 1, 1);
-                const rgb = Array.from(context.getImageData(0, 0, 1, 1).data.slice(0, 3));
-                const linear = rgb.map(channel => {
-                    const value = channel / 255;
-                    return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
-                });
-                return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2];
-            };
-            const style = getComputedStyle(body);
-            const [dark, light] = [luminance(style.color), luminance(style.backgroundColor)].sort((a, b) => a - b);
-            return (light + 0.05) / (dark + 0.05);
-        }""") >= 4.5
-        page.screenshot(path=f"bin/smoke/{width}-{theme.lower()}.png")
+    assert_dark(page)
+    expect(page.get_by_role("button", name="Light", exact=True)).to_have_count(0)
+    expect(page.get_by_role("button", name="Dark", exact=True)).to_have_count(0)
+    viewport = page.locator("html").bounding_box()
+    status = page.get_by_role("region", name="System status").bounding_box()
+    assert viewport and status
+    assert viewport["width"] == width
+    assert status["x"] >= 0 and status["x"] + status["width"] <= width
+    assert page.locator("body").evaluate("""body => {
+        const context = document.createElement('canvas').getContext('2d');
+        const luminance = color => {
+            context.fillStyle = color;
+            context.fillRect(0, 0, 1, 1);
+            const rgb = Array.from(context.getImageData(0, 0, 1, 1).data.slice(0, 3));
+            const linear = rgb.map(channel => {
+                const value = channel / 255;
+                return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+            });
+            return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2];
+        };
+        const style = getComputedStyle(body);
+        const [dark, light] = [luminance(style.color), luminance(style.backgroundColor)].sort((a, b) => a - b);
+        return (light + 0.05) / (dark + 0.05);
+    }""") >= 4.5
+    page.screenshot(path=f"bin/smoke/{width}-dark.png")
 
     with page.expect_navigation():
         page.get_by_role("button", name="Refresh status").click()
@@ -83,6 +85,7 @@ def verify_identity(browser, base_url):
     username = "browser_" + secrets.token_hex(6)
     password = "isolated fixture password"
     page.goto(base_url + "/register")
+    assert_dark(page)
     page.get_by_label("Username").fill(username)
     page.get_by_label("New password").fill(password)
     page.get_by_role("button", name="Create account").click()
@@ -115,6 +118,7 @@ def verify_discovery(browser, base_url, width):
     )
     page = context.new_page()
     page.goto(base_url + "/discover")
+    assert_dark(page)
     expect(page.get_by_label("Sort by")).to_be_visible()
     count = page.locator(".listing-grid").evaluate(
         "(grid) => getComputedStyle(grid).gridTemplateColumns.split(' ').length"
@@ -195,6 +199,7 @@ def verify_upload_progress(browser, base_url):
     page.get_by_label("New password").fill("isolated upload fixture password")
     page.get_by_role("button", name="Create account").click()
     page.goto(base_url + "/sell/new")
+    assert_dark(page)
     page.get_by_label("Title").fill("Image upload fixture")
     file_input = page.locator("input[name=image]")
     file_input.set_input_files({
@@ -299,6 +304,7 @@ def verify_orders(browser, base_url):
     buyer.get_by_label("Shipping region").select_option("EU")
     buyer.get_by_label("Test shipping address").fill("Fictional test address")
     buyer.get_by_role("button", name="Create order and quote").click()
+    assert_dark(buyer)
     order_url = buyer.url
     expect(buyer.get_by_role("region", name="Mock checkout")).to_be_visible()
     buyer.get_by_role("button", name="Simulate and verify payment").click()
@@ -331,6 +337,7 @@ def verify_orders(browser, base_url):
     expect(merchant.get_by_text("USD 12.50", exact=True)).to_be_visible()
 
     merchant.goto(base_url + "/earnings")
+    assert_dark(merchant)
     balance = merchant.get_by_role("region", name="USD balance")
     expect(balance.get_by_text("USD 11.87", exact=True)).to_be_visible()
     for width in (320, 375, 768, 1024, 1440):
@@ -395,6 +402,7 @@ def verify_disputes(browser, base_url):
         check=True,
     )
     buyer.goto(base_url + "/admin/disputes?state=open")
+    assert_dark(buyer)
     record = buyer.locator(f'a[href="/admin{case_path}"]')
     expect(record).to_be_visible()
     for width in (320, 375, 768, 1024, 1440):

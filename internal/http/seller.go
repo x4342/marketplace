@@ -57,7 +57,7 @@ func (p sellerPages) dashboard(w http.ResponseWriter, r *http.Request) {
 		p.failure(w, r, err)
 		return
 	}
-	p.render(w, r, http.StatusOK, templates.SellerDashboard(theme(r), csrfFor(w, r), r.URL.Query().Get("updated") == "1", away, drafts, listings))
+	p.render(w, r, http.StatusOK, templates.SellerDashboard(csrfFor(w, r), r.URL.Query().Get("updated") == "1", away, drafts, listings))
 }
 
 func (p sellerPages) newListing(w http.ResponseWriter, r *http.Request) {
@@ -104,7 +104,7 @@ func (p sellerPages) preview(w http.ResponseWriter, r *http.Request) {
 	}
 	form.CSRF = csrfFor(w, r)
 	_, form.Errors = form.Fields.Publication(pgtype.UUID{}, pgtype.UUID{}, categories)
-	p.render(w, r, http.StatusOK, templates.DraftPreview(theme(r), form))
+	p.render(w, r, http.StatusOK, templates.DraftPreview(form))
 }
 
 func (p sellerPages) save(w http.ResponseWriter, r *http.Request) {
@@ -327,18 +327,18 @@ func (p sellerPages) form(w http.ResponseWriter, r *http.Request, status int, fo
 		return
 	}
 	form.Categories, form.CSRF = categories, csrfFor(w, r)
-	p.render(w, r, status, templates.SellerDraftForm(theme(r), form))
+	p.render(w, r, status, templates.SellerDraftForm(form))
 }
 
 func (p sellerPages) failure(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
-		p.render(w, r, http.StatusNotFound, templates.Problem(theme(r), "Listing unavailable", "Return to Sell to find your editable listings."))
+		p.render(w, r, http.StatusNotFound, templates.Problem("Listing unavailable", "Return to Sell to find your editable listings."))
 	case errors.Is(err, seller.ErrConflict):
-		p.render(w, r, http.StatusConflict, templates.Problem(theme(r), "Listing changed", "Open the latest draft from Sell and retry your changes."))
+		p.render(w, r, http.StatusConflict, templates.Problem("Listing changed", "Open the latest draft from Sell and retry your changes."))
 	default:
 		p.log.Error("seller listing operation failed")
-		p.render(w, r, http.StatusServiceUnavailable, templates.Problem(theme(r), "Seller tools unavailable", "Try again shortly."))
+		p.render(w, r, http.StatusServiceUnavailable, templates.Problem("Seller tools unavailable", "Try again shortly."))
 	}
 }
 

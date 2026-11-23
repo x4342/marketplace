@@ -1,19 +1,12 @@
 package templates
 
-import "strconv"
-
-templ AppShell(title, theme string) {
+templ AppShell(title string) {
 	<!DOCTYPE html>
-	<html
-		lang="en"
-		if theme != "" {
-			data-theme={ theme }
-		}
-	>
+	<html lang="en" data-theme="dark">
 		<head>
 			<meta charset="utf-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
-			<meta name="color-scheme" content="light dark"/>
+			<meta name="color-scheme" content="dark"/>
 			<meta name="htmx-config" content={ `{"allowEval":false,"allowScriptTags":false,"includeIndicatorStyles":false,"historyCacheSize":0,"selfRequestsOnly":true}` }/>
 			<title>{ title } | Private Marketplace</title>
 			<link rel="stylesheet" href="/assets/app.css"/>
@@ -21,7 +14,7 @@ templ AppShell(title, theme string) {
 		</head>
 		<body>
 			<a class="skip-link btn" href="#main-content">Skip to content</a>
-			@Topbar(theme)
+			@Topbar()
 			<div class="app-layout">
 				@Sidebar()
 				<main id="main-content" tabindex="-1" class="app-main">
@@ -32,17 +25,13 @@ templ AppShell(title, theme string) {
 	</html>
 }
 
-templ Topbar(theme string) {
+templ Topbar() {
 	<header class="topbar">
 		<div class="brand">
 			<a href="/">Private Marketplace</a>
 		</div>
 		<a class="discovery-link" href="/discover">Discover</a>
 		<a class="account-link" href="/account">Account</a>
-		<form action="/preferences/theme" method="post" class="theme-picker" aria-label="Color theme">
-			<button class="btn btn-sm" type="submit" name="theme" value="light" aria-pressed={ strconv.FormatBool(theme == "light") }>Light</button>
-			<button class="btn btn-sm" type="submit" name="theme" value="dark" aria-pressed={ strconv.FormatBool(theme == "dark") }>Dark</button>
-		</form>
 	</header>
 }
 
@@ -61,8 +50,8 @@ templ PageHeader(title, description string) {
 	</header>
 }
 
-templ Problem(theme, title, message string) {
-	@AppShell(title, theme) {
+templ Problem(title, message string) {
+	@AppShell(title) {
 		@PageHeader(title, message)
 		<a class="btn btn-primary" href="/">Return to overview</a>
 	}

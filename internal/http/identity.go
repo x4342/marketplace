@@ -30,7 +30,7 @@ func (a app) mountIdentity(mux *http.ServeMux, accounts *identity.Service) {
 		mux.HandleFunc("GET "+form.Path, func(w http.ResponseWriter, r *http.Request) {
 			formData := form
 			formData.CSRF = csrfFor(w, r)
-			a.render(w, r, http.StatusOK, templates.Credentials(theme(r), formData))
+			a.render(w, r, http.StatusOK, templates.Credentials(formData))
 		})
 		mux.HandleFunc("POST "+form.Path, func(w http.ResponseWriter, r *http.Request) {
 			pages.submit(w, r, form)
@@ -70,7 +70,7 @@ func (p identityPages) submit(w http.ResponseWriter, r *http.Request, form templ
 		setPrivateCookie(w, r, sessionCookie, enrollment.Session, 12*60*60)
 		setPrivateCookie(w, r, csrfCookie, identity.NewToken(), 12*60*60)
 		if len(enrollment.Codes) > 0 {
-			p.render(w, r, http.StatusOK, templates.RecoveryCodes(theme(r), enrollment.Codes))
+			p.render(w, r, http.StatusOK, templates.RecoveryCodes(enrollment.Codes))
 			return
 		}
 		http.Redirect(w, r, "/account", http.StatusSeeOther)
@@ -89,13 +89,13 @@ func (p identityPages) submit(w http.ResponseWriter, r *http.Request, form templ
 		form.Error = "This action is temporarily unavailable. Try again shortly."
 		status = http.StatusServiceUnavailable
 	}
-	p.render(w, r, status, templates.Credentials(theme(r), form))
+	p.render(w, r, status, templates.Credentials(form))
 }
 
 func (p identityPages) account(w http.ResponseWriter, r *http.Request) {
 	session, ok := p.requireSession(w, r)
 	if ok {
-		p.render(w, r, http.StatusOK, templates.Account(theme(r), session.Username, csrfFor(w, r), session.Moderator, session.FinanceAdmin))
+		p.render(w, r, http.StatusOK, templates.Account(session.Username, csrfFor(w, r), session.Moderator, session.FinanceAdmin))
 	}
 }
 
@@ -135,20 +135,20 @@ func (p identityPages) rolePage(title string, allowed func(db.ActiveSessionRow) 
 			return
 		}
 		if !allowed(session) {
-			p.render(w, r, http.StatusForbidden, templates.Problem(theme(r), "Access denied", "Your account does not have permission to use this page."))
+			p.render(w, r, http.StatusForbidden, templates.Problem("Access denied", "Your account does not have permission to use this page."))
 			return
 		}
-		p.render(w, r, http.StatusOK, templates.RoleAccess(theme(r), title))
+		p.render(w, r, http.StatusOK, templates.RoleAccess(title))
 	}
 }
 
 func (p identityPages) denied(w http.ResponseWriter, r *http.Request) {
-	p.render(w, r, http.StatusForbidden, templates.Problem(theme(r), "Request denied", "Return to the account page and submit the form again."))
+	p.render(w, r, http.StatusForbidden, templates.Problem("Request denied", "Return to the account page and submit the form again."))
 }
 
 func (p identityPages) unavailable(w http.ResponseWriter, r *http.Request) {
 	p.log.Error("session operation failed")
-	p.render(w, r, http.StatusServiceUnavailable, templates.Problem(theme(r), "Account unavailable", "Try again shortly."))
+	p.render(w, r, http.StatusServiceUnavailable, templates.Problem("Account unavailable", "Try again shortly."))
 }
 
 func cookieValue(r *http.Request, name string) string {

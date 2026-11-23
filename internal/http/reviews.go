@@ -53,7 +53,7 @@ func (p reviewPages) detail(w http.ResponseWriter, r *http.Request) {
 		p.failure(w, r, err)
 		return
 	}
-	p.render(w, r, http.StatusOK, templates.PrivateReview(theme(r), row, row.AuthorID == session.ID, csrfFor(w, r), r.URL.Query().Get("appeal") == "sent"))
+	p.render(w, r, http.StatusOK, templates.PrivateReview(row, row.AuthorID == session.ID, csrfFor(w, r), r.URL.Query().Get("appeal") == "sent"))
 }
 
 func (p reviewPages) report(w http.ResponseWriter, r *http.Request) {
@@ -106,7 +106,7 @@ func (p reviewPages) queue(w http.ResponseWriter, r *http.Request) {
 		}
 		cases = append(cases, templates.ReviewCase{Review: row, Reasons: reasons})
 	}
-	p.render(w, r, http.StatusOK, templates.ReviewQueue(theme(r), cases, csrfFor(w, r), page, more, r.URL.Query().Get("updated") == "1"))
+	p.render(w, r, http.StatusOK, templates.ReviewQueue(cases, csrfFor(w, r), page, more, r.URL.Query().Get("updated") == "1"))
 }
 
 func (p reviewPages) decide(w http.ResponseWriter, r *http.Request) {
@@ -140,13 +140,13 @@ func (p reviewPages) insights(w http.ResponseWriter, r *http.Request) {
 		p.failure(w, r, err)
 		return
 	}
-	p.render(w, r, http.StatusOK, templates.SellerInsights(theme(r), totals, gross))
+	p.render(w, r, http.StatusOK, templates.SellerInsights(totals, gross))
 }
 
 func (p reviewPages) moderator(w http.ResponseWriter, r *http.Request) (db.ActiveSessionRow, bool) {
 	session, ok := p.requireSession(w, r)
 	if ok && !session.Moderator {
-		p.render(w, r, http.StatusForbidden, templates.Problem(theme(r), "Access denied", "Review moderation requires the content moderator role."))
+		p.render(w, r, http.StatusForbidden, templates.Problem("Access denied", "Review moderation requires the content moderator role."))
 		return session, false
 	}
 	return session, ok
@@ -174,8 +174,8 @@ func (p reviewPages) failure(w http.ResponseWriter, r *http.Request, err error) 
 		p.log.Error("review operation failed")
 	}
 	if strings.HasPrefix(r.URL.Path, "/orders/") {
-		p.render(w, r, status, templates.OrderProblem(theme(r), title, detail))
+		p.render(w, r, status, templates.OrderProblem(title, detail))
 		return
 	}
-	p.render(w, r, status, templates.Problem(theme(r), title, detail))
+	p.render(w, r, status, templates.Problem(title, detail))
 }
