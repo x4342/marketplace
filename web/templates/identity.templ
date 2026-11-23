@@ -20,9 +20,11 @@ templ Credentials(form AuthForm) {
 			}
 			<input type="hidden" name="csrf" value={ form.CSRF }/>
 			<label for="username">Username</label>
-			<input class="input" id="username" name="username" value={ form.Username } maxlength="30" autocomplete="username" autocapitalize="none" spellcheck="false" required/>
-			if form.NewPassword && !form.Recovery {
-				<p>Use 3–30 letters, numbers, or underscores.</p>
+			if form.Path == "/register" {
+				<input class="input" id="username" name="username" value={ form.Username } minlength="3" maxlength="20" pattern="[A-Za-z0-9]{3,20}" aria-describedby="username-rules" autocomplete="username" autocapitalize="none" spellcheck="false" required/>
+				<p id="username-rules">Username — 3–20 letters or numbers (case-insensitive).</p>
+			} else {
+				<input class="input" id="username" name="username" value={ form.Username } maxlength="30" autocomplete="username" autocapitalize="none" spellcheck="false" required/>
 			}
 			if form.Recovery {
 				<label for="code">Recovery code</label>
@@ -30,11 +32,11 @@ templ Credentials(form AuthForm) {
 			}
 			if form.NewPassword {
 				<label for="password">New password</label>
-				<input class="input" id="password" name="password" type="password" autocomplete="new-password" minlength="12" maxlength="128" required/>
-				<p>Use at least 12 characters.</p>
+				<input class="input" id="password" name="password" type="password" autocomplete="new-password" aria-describedby="password-rules" required/>
+				<p id="password-rules">Password — 8–128 characters. Spaces and special characters allowed.</p>
 			} else {
 				<label for="password">Password</label>
-				<input class="input" id="password" name="password" type="password" autocomplete="current-password" maxlength="128" required/>
+				<input class="input" id="password" name="password" type="password" autocomplete="current-password" required/>
 			}
 			<button class="btn btn-primary" type="submit">{ form.Action }</button>
 		</form>

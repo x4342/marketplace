@@ -33,7 +33,7 @@ func TestPlatformPostgres(t *testing.T) {
 	guest := testClient{t: t, handler: handler}
 	admin := testClient{t: t, handler: handler}
 	member := testClient{t: t, handler: handler}
-	memberName := "test_m13_member"
+	memberName := "testm13member"
 	password := identity.NewToken()
 	memberPassword := identity.NewToken()
 	account, err := svc.Register(ctx, memberName, memberPassword)

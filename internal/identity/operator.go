@@ -20,7 +20,7 @@ var (
 
 // ConfirmStaff authenticates the current account again for one sensitive operation.
 func (s *Service) ConfirmStaff(ctx context.Context, actor db.ActiveSessionRow, password string) error {
-	if !authz.Allows(actor.Role, authz.Staff) || !Validate(actor.Username, password) {
+	if !authz.Allows(actor.Role, authz.Staff) || !ValidPasswordInput(password) {
 		return ErrInvalid
 	}
 	release, ok := s.limit.admit("staff_reauth", actor.Username)
@@ -42,7 +42,7 @@ func (s *Service) ConfirmStaff(ctx context.Context, actor db.ActiveSessionRow, p
 // BootstrapAdmin can only operate while the singleton bootstrap record is absent.
 // An existing account claim requires its password and a saved recovery code.
 func (s *Service) BootstrapAdmin(ctx context.Context, password, claimCode string, claim bool) ([]string, error) {
-	if !Validate("admin", password) || (claim && !ValidToken(claimCode)) {
+	if !ValidPasswordInput(password) || (claim && !ValidToken(claimCode)) || (!claim && !ValidNewPassword(password)) {
 		return nil, ErrInvalid
 	}
 	var codes []string
@@ -141,7 +141,7 @@ func (s *Service) RestoreAdmin(ctx context.Context, password string) error {
 		if err != nil {
 			return err
 		}
-		if !Validate("admin", password) || !passwordMatches(password, encoded) {
+		if !ValidPasswordInput(password) || !passwordMatches(password, encoded) {
 			return ErrInvalid
 		}
 		current, err := q.EffectiveRole(ctx, row.UserID)
@@ -161,6 +161,7 @@ func (s *Service) RestoreAdmin(ctx context.Context, password string) error {
 
 // OperatorSetRole grants only user or moderator. Elevated access is explicit per account.
 func (s *Service) OperatorSetRole(ctx context.Context, password, username, role string) error {
+	username = NormalizeUsername(username)
 	if (role != authz.User && role != authz.Moderator) || username == "admin" || !ValidUsername(username) {
 		return ErrOperator
 	}
@@ -180,7 +181,7 @@ func (s *Service) OperatorSetRole(ctx context.Context, password, username, role 
 		if err != nil {
 			return err
 		}
-		if !authz.Allows(current, authz.Platform) || !Validate("admin", password) || !passwordMatches(password, encoded) {
+		if !authz.Allows(current, authz.Platform) || !ValidPasswordInput(password) || !passwordMatches(password, encoded) {
 			return ErrOperator
 		}
 		subject, err := q.UserCredential(ctx, username)

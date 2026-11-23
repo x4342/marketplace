@@ -280,3 +280,7 @@
 ## 17. FINAL INSTRUCTION TO IMPLEMENTING AGENT
 
 Read Sections 00-02 first. Identify the correct GitHub repo; audit existing code. Preserve confirmed requirements and all open decision gates. Build the earliest incomplete M-phase using the prescribed stack and design system. Verify a real vertical slice, document evidence, submit a focused PR, and continue methodically as permitted. Never enable real crypto or claim production-readiness without explicit approval. Report exact progress, blockers, and the next unblocked task.
+
+## M14 owner-approved supersessions
+
+M14 updates C01 and M1 registration. New usernames use 3–20 ASCII letters or digits, with case-insensitive lookup and lowercase persistence. Existing account names, including underscores, stay usable. New passwords use 8–128 Unicode code points with the exact submitted bytes. Existing credentials, recovery, hashing and session rules continue to apply.

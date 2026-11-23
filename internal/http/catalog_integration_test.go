@@ -89,10 +89,10 @@ func TestCatalogPostgres(t *testing.T) {
 		}
 	})
 	t.Run("owner-scoped favorites", func(t *testing.T) {
-		var suffix [8]byte
+		var suffix [7]byte
 		_, _ = rand.Read(suffix[:])
 		key := hex.EncodeToString(suffix[:])
-		buyer, other := "buyer_"+key, "other_"+key
+		buyer, other := "buyer"+key, "other"+key
 		defer func() {
 			_, _ = pool.Exec(context.Background(), "DELETE FROM security_events WHERE user_id IN (SELECT id FROM users WHERE username IN ($1, $2))", buyer, other)
 			_, _ = pool.Exec(context.Background(), "DELETE FROM users WHERE username IN ($1, $2)", buyer, other)

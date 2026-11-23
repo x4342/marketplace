@@ -36,7 +36,8 @@ func New(pool *pgxpool.Pool) *Service {
 }
 
 func (s *Service) Register(ctx context.Context, username, password string) (Enrollment, error) {
-	if username == "admin" || !Validate(username, password) {
+	username = NormalizeUsername(username)
+	if username == "admin" || !ValidNewUsername(username) || !ValidNewPassword(password) {
 		return Enrollment{}, ErrInvalid
 	}
 	release, ok := s.limit.admit("register", username)
@@ -63,7 +64,8 @@ func (s *Service) Register(ctx context.Context, username, password string) (Enro
 }
 
 func (s *Service) Login(ctx context.Context, username, password, previousToken string) (string, error) {
-	if !Validate(username, password) {
+	username = NormalizeUsername(username)
+	if !ValidUsername(username) || !ValidPasswordInput(password) {
 		return "", ErrInvalid
 	}
 	release, ok := s.limit.admit("login", username)
@@ -110,7 +112,8 @@ func (s *Service) Login(ctx context.Context, username, password, previousToken s
 }
 
 func (s *Service) Recover(ctx context.Context, username, code, password string) (Enrollment, error) {
-	if !Validate(username, password) || !ValidToken(code) {
+	username = NormalizeUsername(username)
+	if !ValidUsername(username) || !ValidNewPassword(password) || !ValidToken(code) {
 		return Enrollment{}, ErrInvalid
 	}
 	release, ok := s.limit.admit("recover", username)

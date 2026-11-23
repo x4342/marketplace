@@ -120,4 +120,17 @@ func TestLegacyRolesPostgres(t *testing.T) {
 	if _, err := provider.Down(ctx); err == nil {
 		t.Fatal("rollback allowed with populated role history")
 	}
+	if _, err := provider.UpTo(ctx, 14); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.Login(ctx, "LEGACY_FINANCE", password, ""); err != nil {
+		t.Fatal("grandfathered username could not authenticate", err)
+	}
+	if _, err := svc.Register(ctx, "another_legacy", "12345678"); !errors.Is(err, ErrInvalid) {
+		t.Fatal("new underscore username accepted", err)
+	}
+	if _, err := q.CreateUser(ctx, db.CreateUserParams{Username: "bypass_db", PasswordHash: hash}); err == nil {
+		t.Fatal("new database account bypassed username policy")
+	}
+
 }

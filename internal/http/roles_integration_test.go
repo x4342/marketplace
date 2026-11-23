@@ -54,7 +54,7 @@ func TestRolesPostgres(t *testing.T) {
 	for _, path := range []string{"/admin/payouts", "/admin/content", "/admin/audit"} {
 		admin.call("GET", path, nil, 200)
 	}
-	name := "role_" + strings.NewReplacer("-", "a", "_", "b").Replace(strings.ToLower(identity.NewToken()[:12]))
+	name := "role" + strings.NewReplacer("-", "a", "_", "b").Replace(strings.ToLower(identity.NewToken()[:12]))
 	enrolled, err := accounts.Register(ctx, name, password)
 	if err != nil {
 		t.Fatal(err)

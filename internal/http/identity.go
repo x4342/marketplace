@@ -87,6 +87,11 @@ func (p identityPages) submit(w http.ResponseWriter, r *http.Request, form templ
 		w.Header().Set("Retry-After", "60")
 	case errors.Is(err, identity.ErrInvalid):
 		form.Error = "Check the details you entered and try again."
+		if form.Path == "/register" {
+			form.Error = "Choose an available username and a password that follows the rules below."
+		} else if form.Recovery {
+			form.Error = "Check the username, recovery code, and new password rules."
+		}
 	default:
 		p.log.Error("identity request failed")
 		form.Error = "This action is temporarily unavailable. Try again shortly."

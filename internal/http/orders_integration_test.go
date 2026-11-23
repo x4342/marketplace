@@ -48,10 +48,10 @@ func TestOrdersPostgres(t *testing.T) {
 	merchant := testClient{t: t, handler: handler}
 	outsider := testClient{t: t, handler: handler}
 	for client, prefix := range map[*testClient]string{&buyer: "buyer", &merchant: "seller", &outsider: "other"} {
-		var token [8]byte
+		var token [7]byte
 		_, _ = rand.Read(token[:])
 		client.call("GET", "/register", nil, 200)
-		client.post("/register", url.Values{"username": {prefix + "_" + hex.EncodeToString(token[:])}, "password": {"isolated fixture passphrase"}}, 200)
+		client.post("/register", url.Values{"username": {prefix[:min(len(prefix), 8)] + hex.EncodeToString(token[:])}, "password": {"isolated fixture passphrase"}}, 200)
 	}
 
 	b, err := accounts.Active(ctx, buyer.session)
