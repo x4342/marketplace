@@ -109,3 +109,7 @@ FROM orders o JOIN order_items i ON i.order_id=o.id
 WHERE o.seller_id=$1 AND o.state='completed'
 AND EXISTS (SELECT 1 FROM payment_observations p WHERE p.order_id=o.id)
 GROUP BY i.currency ORDER BY i.currency;
+
+-- name: LatestReviewHider :one
+SELECT moderator_id FROM review_moderation_actions
+WHERE review_id=$1 AND action='hide' ORDER BY created_at DESC,id DESC LIMIT 1;

@@ -6,6 +6,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/x4342/marketplace/internal/authz"
 	"github.com/x4342/marketplace/internal/db"
 	"github.com/x4342/marketplace/internal/finance"
 	"github.com/x4342/marketplace/internal/identity"
@@ -167,6 +168,9 @@ func (p financePages) adminAction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id := listingID(r)
+	if !p.requireFreshStaff(w, r, actor) {
+		return
+	}
 	if err := p.ledger.Act(r.Context(), actor.ID, id, r.PostForm.Get("action"), r.PostForm.Get("reason")); err != nil {
 		p.failure(w, r, err)
 		return
@@ -200,6 +204,9 @@ func (p financePages) adjust(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	if !p.requireFreshStaff(w, r, actor) {
+		return
+	}
 	if err := p.checkout.Adjust(r.Context(), actor.ID, listingID(r), r.PostForm.Get("action"), r.PostForm.Get("reason")); err != nil {
 		p.failure(w, r, err)
 		return
@@ -209,7 +216,7 @@ func (p financePages) adjust(w http.ResponseWriter, r *http.Request) {
 
 func (p financePages) admin(w http.ResponseWriter, r *http.Request) (db.ActiveSessionRow, bool) {
 	actor, ok := p.requireSession(w, r)
-	if ok && !actor.FinanceAdmin {
+	if ok && !authz.Allows(actor.Role, authz.Staff) {
 		p.failure(w, r, finance.ErrRole)
 		return actor, false
 	}
@@ -220,7 +227,7 @@ func (p financePages) failure(w http.ResponseWriter, r *http.Request, err error)
 	status, title, detail := 503, "Finance unavailable", "Try again shortly."
 	switch {
 	case errors.Is(err, finance.ErrRole):
-		status, title, detail = 403, "Access denied", "This operation requires a separate finance administrator."
+		status, title, detail = 403, "Access denied", "This operation requires a moderator or administrator who is independent of the transaction."
 	case errors.Is(err, pgx.ErrNoRows):
 		status, title, detail = 404, "Finance record unavailable", "Open your earnings or the finance queue."
 	case errors.Is(err, finance.ErrFunds):

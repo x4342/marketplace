@@ -20,7 +20,7 @@ COPY internal/ internal/
 COPY web/ web/
 COPY --from=frontend /src/web/static/dist/ web/static/dist/
 RUN make generate \
-    && go build -mod=readonly -trimpath -buildvcs=false -ldflags="-s -w" -o /out/ ./cmd/web ./cmd/worker ./cmd/migrate ./cmd/container-health
+    && go build -mod=readonly -trimpath -buildvcs=false -ldflags="-s -w" -o /out/ ./cmd/web ./cmd/worker ./cmd/migrate ./cmd/container-health ./cmd/marketplace-admin
 
 FROM gcr.io/distroless/static-debian12:nonroot
 WORKDIR /app

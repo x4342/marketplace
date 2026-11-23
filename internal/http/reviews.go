@@ -8,6 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/x4342/marketplace/internal/authz"
 	"github.com/x4342/marketplace/internal/db"
 	"github.com/x4342/marketplace/internal/reviews"
 	"github.com/x4342/marketplace/web/templates"
@@ -145,7 +146,7 @@ func (p reviewPages) insights(w http.ResponseWriter, r *http.Request) {
 
 func (p reviewPages) moderator(w http.ResponseWriter, r *http.Request) (db.ActiveSessionRow, bool) {
 	session, ok := p.requireSession(w, r)
-	if ok && !session.Moderator {
+	if ok && !authz.Allows(session.Role, authz.Staff) {
 		p.render(w, r, http.StatusForbidden, templates.Problem("Access denied", "Review moderation requires the content moderator role."))
 		return session, false
 	}

@@ -78,8 +78,5 @@ AND NOT EXISTS(SELECT 1 FROM disputes d WHERE d.order_id=o.id)
 AND EXISTS (SELECT 1 FROM payment_observations p WHERE p.order_id=o.id)
 ORDER BY o.created_at DESC,o.id LIMIT 31 OFFSET sqlc.arg(page_offset)::integer;
 
--- name: FinanceRole :one
-SELECT EXISTS(SELECT 1 FROM role_assignments WHERE user_id=$1 AND role='finance_admin')::boolean;
-
 -- name: SetPayoutHold :exec
 UPDATE seller_payouts SET hold_active=$2 WHERE id=$1;

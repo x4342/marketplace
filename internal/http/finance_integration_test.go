@@ -59,7 +59,7 @@ func TestFinancePostgres(t *testing.T) {
 	_, buyerID := register("buyer")
 	admin, adminID := register("finance")
 	moderator, modID := register("mod")
-	if _, err := pool.Exec(ctx, "INSERT INTO role_assignments(user_id,role) VALUES ($1,'finance_admin'),($2,'moderator')", adminID, modID); err != nil {
+	if _, err := pool.Exec(ctx, "INSERT INTO role_assignments(user_id,role) VALUES ($1,'moderator'),($2,'moderator')", adminID, modID); err != nil {
 		t.Fatal(err)
 	}
 
@@ -162,15 +162,23 @@ func TestFinancePostgres(t *testing.T) {
 	payout := first.id
 	balances(0, 700, 0, 1200, 0)
 	modPath := "/admin/payouts/" + payout.String() + "/action"
-	moderator.call("GET", "/admin/payouts", nil, 403)
+	sellerClient.call("GET", "/admin/payouts", nil, 403)
+	moderator.call("GET", "/admin/payouts", nil, 200)
 	moderator.post(modPath, url.Values{"action": {"review"}, "reason": {"Denied test"}}, 403)
 	moderator.call("GET", "/payouts/"+payout.String(), nil, 404)
 	browserAct := func(id pgtype.UUID, action string, want int) {
 		t.Helper()
-		admin.post("/admin/payouts/"+id.String()+"/action", url.Values{"action": {action}, "reason": {"Isolated finance test decision"}}, want)
+		admin.post("/admin/payouts/"+id.String()+"/action", url.Values{"action": {action}, "reason": {"Isolated finance test decision"}, "staff_password": {"isolated finance fixture password"}}, want)
 	}
 	browserAct(payout, "approve", 409)
 	browserAct(payout, "review", 303)
+	if _, err := pool.Exec(ctx, "INSERT INTO role_assignments(user_id,role) VALUES ($1,'moderator')", sellerID); err != nil {
+		t.Fatal(err)
+	}
+	sellerClient.post(modPath, url.Values{"action": {"approve"}, "reason": {"Self approval must fail"}, "staff_password": {"isolated finance fixture password"}}, 403)
+	if _, err := pool.Exec(ctx, "DELETE FROM role_assignments WHERE user_id=$1", sellerID); err != nil {
+		t.Fatal(err)
+	}
 	browserAct(payout, "deny", 303)
 	balances(0, 1900, 0, 0, 0)
 
@@ -226,7 +234,7 @@ func TestFinancePostgres(t *testing.T) {
 
 	adjust := func(id pgtype.UUID, action string, want int) {
 		t.Helper()
-		admin.post("/admin/payment-adjustments/"+id.String(), url.Values{"action": {action}, "reason": {"Mock adjustment fixture"}}, want)
+		admin.post("/admin/payment-adjustments/"+id.String(), url.Values{"action": {action}, "reason": {"Mock adjustment fixture"}, "staff_password": {"isolated finance fixture password"}}, want)
 	}
 	adjust(paid, "refund", 409)
 	balances(0, 1000, 0, 0, 900)

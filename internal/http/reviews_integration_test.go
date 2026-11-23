@@ -54,7 +54,7 @@ func TestReviewsPostgres(t *testing.T) {
 		}
 		ids[client] = account
 	}
-	if _, err := pool.Exec(ctx, "INSERT INTO role_assignments(user_id,role) VALUES ($1,'moderator'),($2,'finance_admin')", ids[&moderator].ID, ids[&finance].ID); err != nil {
+	if _, err := pool.Exec(ctx, "INSERT INTO role_assignments(user_id,role) VALUES ($1,'moderator')", ids[&moderator].ID); err != nil {
 		t.Fatal(err)
 	}
 	var listing pgtype.UUID
@@ -174,7 +174,11 @@ func TestReviewsPostgres(t *testing.T) {
 	outsider.post(private+"/appeal", url.Values{"reason": {"unrelated"}}, 404)
 	buyer.post(private+"/appeal", url.Values{"reason": {"Fixture appeal reason"}}, 303)
 	buyer.post(private+"/appeal", url.Values{"reason": {"duplicate appeal"}}, 409)
-	moderator.post(decision, url.Values{"action": {"restore"}, "reason": {"Fixture restore reason"}}, 303)
+	moderator.post(decision, url.Values{"action": {"restore"}, "reason": {"Self review must fail"}}, 409)
+	if _, err := pool.Exec(ctx, "INSERT INTO role_assignments(user_id,role) VALUES ($1,'moderator')", ids[&finance].ID); err != nil {
+		t.Fatal(err)
+	}
+	finance.post(decision, url.Values{"action": {"restore"}, "reason": {"Fixture restore reason"}}, 303)
 	if !strings.Contains(outsider.call("GET", public, nil, 200).Body.String(), "Verified &lt;strong&gt;fixture") {
 		t.Fatal("restored review did not return")
 	}

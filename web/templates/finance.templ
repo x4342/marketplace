@@ -199,6 +199,7 @@ templ PayoutActionForm(data PayoutData) {
 	<form class="card status-card seller-panel seller-form" method="post" action={ templ.SafeURL("/admin/payouts/" + data.ID.String() + "/action") }>
 		<input type="hidden" name="csrf" value={ data.CSRF }/>
 		<label>Reason shown to the seller <textarea class="textarea" name="reason" rows="3" maxlength="1000" required></textarea></label>
+		@StaffPassword()
 		<div class="seller-actions">
 			switch data.State {
 				case "reserved":
@@ -272,6 +273,7 @@ templ PaymentAdjustments(rows []db.FinanceOrderQueueRow, csrf string, page int32
 						<form class="seller-form seller-panel" method="post" action={ templ.SafeURL("/admin/payment-adjustments/" + row.ID.String()) }>
 							<input type="hidden" name="csrf" value={ csrf }/>
 							<label>Reason shown on the order <textarea class="textarea" name="reason" rows="3" maxlength="1000" required></textarea></label>
+							@StaffPassword()
 							<div class="seller-actions">
 								<button class="btn" name="action" value="refund">Confirm simulated refund</button>
 								<button class="btn" name="action" value="reversal">Confirm simulated reversal</button>

@@ -17,9 +17,7 @@ INSERT INTO sessions (token_hash, user_id, expires_at)
 VALUES ($1, $2, now() + interval '12 hours');
 
 -- name: ActiveSession :one
-SELECT u.id, u.username,
-       EXISTS (SELECT 1 FROM role_assignments r WHERE r.user_id = u.id AND r.role = 'moderator') AS moderator,
-       EXISTS (SELECT 1 FROM role_assignments r WHERE r.user_id = u.id AND r.role = 'finance_admin') AS finance_admin
+SELECT u.id, u.username, marketplace_effective_role(u.id)::text AS role
 FROM sessions s JOIN users u ON u.id = s.user_id
 WHERE s.token_hash = $1 AND s.expires_at > now();
 

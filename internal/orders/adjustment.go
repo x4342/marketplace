@@ -8,6 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/x4342/marketplace/internal/authz"
 	"github.com/x4342/marketplace/internal/db"
 	"github.com/x4342/marketplace/internal/finance"
 )
@@ -18,11 +19,11 @@ func (s Service) Adjust(ctx context.Context, admin, id pgtype.UUID, kind, reason
 		return finance.ErrInvalid
 	}
 	return s.transaction(ctx, func(q *db.Queries) error {
-		allowed, err := q.FinanceRole(ctx, admin)
+		role, err := q.EffectiveRole(ctx, admin)
 		if err != nil {
 			return err
 		}
-		if !allowed {
+		if !authz.Allows(role, authz.Staff) {
 			return finance.ErrRole
 		}
 		order, err := q.LockOrder(ctx, id)

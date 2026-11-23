@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/x4342/marketplace/internal/authz"
 	"github.com/x4342/marketplace/internal/db"
 	"github.com/x4342/marketplace/internal/finance"
 	"github.com/x4342/marketplace/internal/moderation"
@@ -52,7 +53,7 @@ func (p adminPages) dispute(w http.ResponseWriter, r *http.Request, admin bool) 
 	if !ok {
 		return
 	}
-	if admin && !actor.Moderator {
+	if admin && !authz.Allows(actor.Role, authz.Staff) {
 		p.failure(w, r, moderation.ErrRole)
 		return
 	}
@@ -160,6 +161,9 @@ func (p adminPages) decideDispute(w http.ResponseWriter, r *http.Request) {
 		}
 		err = p.content.DisputeAppealDecision(r.Context(), actor.ID, id, appeal, action, reason)
 	} else {
+		if !p.requireFreshStaff(w, r, actor) {
+			return
+		}
 		err = p.checkout.ResolveDispute(r.Context(), actor.ID, id, action, reason)
 	}
 	if err != nil {
@@ -286,12 +290,12 @@ func (p adminPages) audit(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if !actor.Moderator && !actor.FinanceAdmin {
+	if !authz.Allows(actor.Role, authz.Staff) {
 		p.failure(w, r, moderation.ErrRole)
 		return
 	}
 	page := inboxPage(r)
-	rows, err := p.queries.AdminAudit(r.Context(), db.AdminAuditParams{Content: actor.Moderator, Finance: actor.FinanceAdmin, PageOffset: 30 * (page - 1)})
+	rows, err := p.queries.AdminAudit(r.Context(), db.AdminAuditParams{Content: true, Finance: true, PageOffset: 30 * (page - 1)})
 	if err != nil {
 		p.failure(w, r, err)
 		return
@@ -313,7 +317,7 @@ func filterState(r *http.Request, choices ...string) string {
 
 func (p adminPages) moderator(w http.ResponseWriter, r *http.Request) (db.ActiveSessionRow, bool) {
 	actor, ok := p.requireSession(w, r)
-	if ok && !actor.Moderator {
+	if ok && !authz.Allows(actor.Role, authz.Staff) {
 		p.failure(w, r, moderation.ErrRole)
 		return actor, false
 	}

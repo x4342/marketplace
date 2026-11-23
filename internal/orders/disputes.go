@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/x4342/marketplace/internal/authz"
 	"github.com/x4342/marketplace/internal/db"
 	"github.com/x4342/marketplace/internal/finance"
 )
@@ -48,11 +49,11 @@ func (s Service) ResolveDispute(ctx context.Context, actor, caseID pgtype.UUID, 
 		return finance.ErrInvalid
 	}
 	return s.transaction(ctx, func(q *db.Queries) error {
-		ok, err := q.ContentRole(ctx, actor)
+		role, err := q.EffectiveRole(ctx, actor)
 		if err != nil {
 			return err
 		}
-		if !ok {
+		if !authz.Allows(role, authz.Staff) {
 			return finance.ErrRole
 		}
 		dispute, err := q.LockDispute(ctx, caseID)

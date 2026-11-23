@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/x4342/marketplace/internal/authz"
 	"github.com/x4342/marketplace/internal/db"
 )
 
@@ -240,11 +241,11 @@ func audit(ctx context.Context, q *db.Queries, actor, id pgtype.UUID, area, acti
 }
 
 func authorize(ctx context.Context, q *db.Queries, actor pgtype.UUID) error {
-	allowed, err := q.ContentRole(ctx, actor)
+	role, err := q.EffectiveRole(ctx, actor)
 	if err != nil {
 		return err
 	}
-	if !allowed {
+	if !authz.Allows(role, authz.Staff) {
 		return ErrRole
 	}
 	return nil
