@@ -41,7 +41,7 @@ func membersURL(query string, page int32) templ.SafeURL {
 	return templ.SafeURL("/discover?" + params.Encode())
 }
 
-templ MemberSearch(query, problem string, rows []db.SearchMembersRow, page int32, more bool) {
+templ MemberSearch(query, problem, csrf string, rows []db.SearchMembersRow, page int32, more bool) {
 	@AppShell("Find users") {
 		@PageHeader("Find users", "Search for a marketplace username.")
 		if problem != "" {
@@ -55,6 +55,11 @@ templ MemberSearch(query, problem string, rows []db.SearchMembersRow, page int32
 			for _, row := range rows {
 				<article class="card status-card seller-panel">
 					@ProfileIdentity(row.Username)
+					if row.CanMessage {
+						@DirectMessageAction(row.Username, csrf)
+					} else if csrf == "" {
+						<a href="/login">Sign in to message</a>
+					}
 					if row.Summary != "" {
 						<p class="profile-bio">{ row.Summary }</p>
 					}

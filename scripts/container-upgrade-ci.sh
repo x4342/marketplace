@@ -6,11 +6,11 @@ if [[ ${GITHUB_ACTIONS:-} != true || ${COMPOSE_PROJECT_NAME:-} != marketplace-ci
   echo "Run this verification only inside the disposable marketplace-ci Actions stack."
   exit 1
 fi
-base_revision=ab45a203d55cd62f64ec7e973c09e4374480d4a2
+base_revision=a36d28d3b84cc90174fdfac2a1257b501d26409c
 image_next=${MARKETPLACE_IMAGE:?}
 docker compose down
 export COMPOSE_PROJECT_NAME=marketplace-upgrade-ci
-export MARKETPLACE_IMAGE=marketplace:m12-ci
+export MARKETPLACE_IMAGE=marketplace:m13-ci
 scratch=$(mktemp -d)
 cleanup() {
   docker compose logs --no-color --tail 30 web migrate worker || true
@@ -31,7 +31,7 @@ db() {
 version() {
   db -Atc 'SELECT max(version_id) FROM goose_db_version'
 }
-test "$(version)" = 12
+test "$(version)" = 13
 db < "$scratch/prior/db/dev-fixtures.sql"
 python - <<'PY'
 from pathlib import Path
@@ -56,8 +56,10 @@ SELECT format(
   'SELECT %L, count(*), md5(coalesce(string_agg(digest, %L ORDER BY digest), %L)) FROM (SELECT md5(to_jsonb(t)::text) AS digest FROM %I t) records;',
   name, '', '', name)
 FROM unnest(ARRAY['users','listings','listing_images','user_profiles','role_assignments', 'role_change_events',
-    'conversations','orders','order_items','shipping_details','digital_entitlements',
+    'messages','conversation_reads','conversation_blocks','notifications','conversation_system_events','orders','order_items','shipping_details','digital_entitlements',
     'payment_observations','journal_entries','journal_lines']) AS names(name);
+SELECT $$SELECT 'conversations', count(*), md5(coalesce(string_agg(digest, '' ORDER BY digest), ''))
+FROM (SELECT md5(to_jsonb(c)::text) AS digest FROM (SELECT id,listing_id,buyer_id,seller_id,updated_at,moderation_blocked FROM conversations) c) records;$$;
 SELECT $$SELECT 'categories', count(*), md5(coalesce(string_agg(digest, '' ORDER BY digest), ''))
 FROM (SELECT md5(to_jsonb(c)::text) AS digest FROM (SELECT slug,name,parent_slug FROM categories) c) records;$$;
 SQL
@@ -70,7 +72,7 @@ docker compose up -d --wait --wait-timeout 120
 target=$(find db/migrations -name '*.sql' -printf '%f\n' | sort | tail -1 | cut -d_ -f1 | sed 's/^0*//')
 test "$(version)" = "$target"
 test "$(docker inspect --format '{{.State.ExitCode}}' "$(docker compose ps -aq migrate)")" = 0
-test "$(docker compose port web 8080)" = 127.0.0.1:8080
+test "$(docker compose port web 8080)" = 137.0.0.1:8080
 docker compose exec -T worker /app/container-health worker
 db -At < "$scratch/snapshot.sql" > "$scratch/upgraded.snapshot"
 cmp "$scratch/prior.snapshot" "$scratch/upgraded.snapshot"
@@ -87,4 +89,4 @@ for kind in listing avatar; do
   curl -fsS "$url" > "$scratch/$kind.after"
   cmp "$scratch/$kind.before" "$scratch/$kind.after"
 done
-echo "M12 → M13 upgrade preserved application records, ledger balances, listing images and avatars."
+echo "M13 → M14 upgrade preserved application records, ledger balances, listing images and avatars."

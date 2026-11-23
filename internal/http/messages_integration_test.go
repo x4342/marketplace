@@ -6,6 +6,8 @@ import (
 	"encoding/hex"
 	"io"
 	"log/slog"
+	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"os"
 	"strconv"
@@ -35,7 +37,7 @@ func TestMessagesPostgres(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	var token [8]byte
+	var token [7]byte
 	_, _ = rand.Read(token[:])
 	suffix := hex.EncodeToString(token[:])
 	buyerName, sellerName, guestName := "buyer"+suffix, "seller"+suffix, "other"+suffix
@@ -96,7 +98,7 @@ func TestMessagesPostgres(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if inbox := merchant.call("GET", "/messages", nil, 200).Body.String(); !strings.Contains(inbox, "1 unread conversations") {
+	if inbox := merchant.call("GET", "/messages", nil, 200).Body.String(); !strings.Contains(inbox, "Unread messages") {
 		t.Fatal("recipient inbox did not show unread activity")
 	}
 	noticePath := "/notifications/" + noticeID
@@ -107,7 +109,7 @@ func TestMessagesPostgres(t *testing.T) {
 		t.Fatal("notification did not target the correct message")
 	}
 	merchant.post(thread+"/read", url.Values{"sequence": {strconv.FormatInt(seq, 10)}}, 303)
-	if inbox := merchant.call("GET", "/messages", nil, 200).Body.String(); !strings.Contains(inbox, "0 unread conversations") {
+	if inbox := merchant.call("GET", "/messages", nil, 200).Body.String(); strings.Contains(inbox, "Unread messages") {
 		t.Fatal("mark as read did not update the recipient state")
 	}
 
@@ -143,4 +145,90 @@ func TestMessagesPostgres(t *testing.T) {
 	if older := merchant.call("GET", strings.Split(link, "#")[0], nil, 200).Body.String(); !strings.Contains(older, "&lt;script&gt;Hello&lt;/script&gt;") {
 		t.Fatal("notification pagination lost the target message")
 	}
+}
+
+func TestDirectMessagesPostgres(t *testing.T) {
+	dsn := os.Getenv("MARKETPLACE_MESSAGES_TEST_DATABASE_URL")
+	if dsn == "" {
+		t.Skip("requires a migrated disposable database")
+	}
+	ctx := t.Context()
+	pool, err := pgxpool.New(ctx, dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pool.Close()
+	auth := identity.New(pool)
+	handler, err := New(db.New(pool), auth, seller.Service{Pool: pool}, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var suffix [4]byte
+	_, _ = rand.Read(suffix[:])
+	aName, bName, cName := "directa"+hex.EncodeToString(suffix[:]), "directb"+hex.EncodeToString(suffix[:]), "directc"+hex.EncodeToString(suffix[:])
+	a, b, c := testClient{t: t, handler: handler}, testClient{t: t, handler: handler}, testClient{t: t, handler: handler}
+	for client, name := range map[*testClient]string{&a: aName, &b: bName, &c: cName} {
+		client.call("GET", "/register", nil, 200)
+		client.post("/register", url.Values{"username": {name}, "password": {"sample direct fixture password"}}, 200)
+	}
+	guest := testClient{t: t, handler: handler}
+	search := "/discover?search=users&q=" + strings.ToUpper(bName) + "&type=invalid"
+	if body := guest.call("GET", search, nil, 200).Body.String(); !strings.Contains(body, bName) || strings.Contains(body, "Sort by") || strings.Contains(body, "/messages/direct") {
+		t.Fatal("unexpected anonymous member search")
+	}
+	if body := a.call("GET", search, nil, 200).Body.String(); !strings.Contains(body, "Message "+bName) {
+		t.Fatal("member search omitted the message action")
+	}
+	if body := b.call("GET", "/users/"+bName, nil, 200).Body.String(); strings.Contains(body, "Message "+bName) {
+		t.Fatal("self message action rendered")
+	}
+	a.call("POST", "/messages/direct", nil, 403)
+	a.post("/messages/direct", url.Values{"username": {aName}}, 404)
+	paths := make(chan string, 2)
+	start := func(client testClient, partner string) {
+		writer := httptest.NewRecorder()
+		form := url.Values{"username": {partner}, "csrf": {client.csrf}}
+		req := httptest.NewRequest("POST", "/messages/direct", strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		req.AddCookie(&http.Cookie{Name: sessionCookie, Value: client.session})
+		req.AddCookie(&http.Cookie{Name: csrfCookie, Value: client.csrf})
+		handler.ServeHTTP(writer, req)
+		if writer.Code != 303 {
+			paths <- ""
+			return
+		}
+		paths <- writer.Header().Get("Location")
+	}
+	go start(a, strings.ToUpper(bName))
+	go start(b, aName)
+	path, reversed := <-paths, <-paths
+	if path == "" || path != reversed {
+		t.Fatal("concurrent reversed start did not use one direct thread")
+	}
+	c.call("GET", path, nil, 404)
+	c.call("GET", path+"/entries", nil, 404)
+	c.post(path+"/send", url.Values{"message": {"intrusion"}}, 404)
+	a.post(path+"/send", url.Values{"message": {"Private direct fixture"}, "kind": {"purchase"}}, 303)
+	if body := b.call("GET", "/messages", nil, 200).Body.String(); !strings.Contains(body, "Private direct fixture") || !strings.Contains(body, `aria-current="page"`) {
+		t.Fatal("inbox did not open the latest direct conversation")
+	}
+	pathID := strings.TrimPrefix(path, "/messages/")
+	var events int
+	if err := pool.QueryRow(ctx, "SELECT count(*) FROM conversation_system_events WHERE conversation_id=$1", pathID).Scan(&events); err != nil || events != 0 {
+		t.Fatal("direct send created a purchase event", err)
+	}
+	b.post(path+"/block", url.Values{"block": {"block"}}, 303)
+	a.post(path+"/send", url.Values{"message": {"blocked fixture"}}, 403)
+	b.post(path+"/block", url.Values{"block": {"unblock"}}, 303)
+	b.post(path+"/report", url.Values{"reason": {"Synthetic direct case"}}, 303)
+	if _, err := pool.Exec(ctx, `INSERT INTO user_restrictions(user_id,moderator_id,reason)
+		SELECT u.id,m.id,'synthetic restriction' FROM users u,users m WHERE u.username=$1 AND m.username=$2`, bName, cName); err != nil {
+		t.Fatal(err)
+	}
+	a.post("/messages/direct", url.Values{"username": {bName}}, 404)
+	a.post(path+"/send", url.Values{"message": {"restricted peer fixture"}}, 403)
+	if body := guest.call("GET", search, nil, 200).Body.String(); strings.Contains(body, "/users/"+bName) {
+		t.Fatal("restricted account leaked in member search")
+	}
+	guest.call("GET", "/users/"+bName, nil, 404)
 }

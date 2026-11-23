@@ -14,10 +14,14 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/x4342/marketplace/internal/db"
+	"github.com/x4342/marketplace/internal/identity"
 	"github.com/x4342/marketplace/web/templates"
 )
 
-var errThreadBlocked = errors.New("conversation blocked")
+var (
+	errThreadBlocked  = errors.New("conversation blocked")
+	errMessageLimited = errors.New("messaging rate limit")
+)
 
 type messagePages struct {
 	identityPages
@@ -26,8 +30,9 @@ type messagePages struct {
 }
 
 func (p messagePages) mount(mux *http.ServeMux) {
-	mux.HandleFunc("GET /messages", p.inbox)
-	mux.HandleFunc("GET /messages/{id}", p.thread)
+	mux.HandleFunc("GET /messages", p.workspace)
+	mux.HandleFunc("POST /messages/direct", p.openDirect)
+	mux.HandleFunc("GET /messages/{id}", p.workspace)
 	mux.HandleFunc("GET /messages/{id}/entries", p.fragment)
 	mux.HandleFunc("POST /listings/{id}/conversation", p.open)
 	mux.HandleFunc("POST /messages/{id}/send", p.send)
@@ -38,23 +43,93 @@ func (p messagePages) mount(mux *http.ServeMux) {
 	mux.HandleFunc("GET /notifications/{id}", p.notification)
 }
 
-func (p messagePages) inbox(w http.ResponseWriter, r *http.Request) {
+func (p messagePages) workspace(w http.ResponseWriter, r *http.Request) {
 	session, ok := p.requireSession(w, r)
 	if !ok {
 		return
 	}
+	id := listingID(r)
+	if r.PathValue("id") == "" {
+		var err error
+		id, err = p.queries.LatestConversation(r.Context(), session.ID)
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			p.failure(w, r, err)
+			return
+		}
+	} else if !id.Valid {
+		p.failure(w, r, pgx.ErrNoRows)
+		return
+	}
+	var thread templates.ThreadData
+	if id.Valid {
+		var loaded bool
+		thread, loaded = p.loadThread(w, r, session.ID, id)
+		if !loaded {
+			return
+		}
+	}
+	p.renderWorkspace(w, r, session.ID, thread, http.StatusOK)
+}
+
+func (p messagePages) renderWorkspace(w http.ResponseWriter, r *http.Request, actor pgtype.UUID, thread templates.ThreadData, status int) {
 	page := inboxPage(r)
-	rows, err := p.queries.Inbox(r.Context(), db.InboxParams{Actor: session.ID, PageOffset: 30 * (page - 1)})
+	rows, err := p.queries.Inbox(r.Context(), db.InboxParams{Actor: actor, PageOffset: 30 * (page - 1)})
 	if err != nil {
 		p.failure(w, r, err)
 		return
 	}
-	unread, err := p.queries.UnreadConversations(r.Context(), session.ID)
+	more := len(rows) > 30
+	if more {
+		rows = rows[:30]
+	}
+	p.render(w, r, status, templates.MessageWorkspace(rows, thread, page, more, r.URL.Query().Get("updated")))
+}
+
+func (p messagePages) openDirect(w http.ResponseWriter, r *http.Request) {
+	session, ok := p.mutation(w, r)
+	if !ok {
+		return
+	}
+	username := identity.NormalizeUsername(r.PostForm.Get("username"))
+	if !identity.ValidUsername(username) {
+		p.failure(w, r, pgx.ErrNoRows)
+		return
+	}
+	ctx := r.Context()
+	var id pgtype.UUID
+	err := pgx.BeginFunc(ctx, p.pool, func(tx pgx.Tx) error {
+		q := db.New(tx)
+		if err := q.LockMessagingActor(ctx, session.ID.String()); err != nil {
+			return err
+		}
+		peer, err := q.DirectPeer(ctx, db.DirectPeerParams{Username: username, Actor: session.ID})
+		if err != nil {
+			return err
+		}
+		id, err = q.DirectConversation(ctx, db.DirectConversationParams{Actor: session.ID, Peer: peer})
+		if !errors.Is(err, pgx.ErrNoRows) {
+			return err
+		}
+		limited, err := q.DirectOpenLimited(ctx, session.ID)
+		if err != nil {
+			return err
+		}
+		if limited {
+			return errMessageLimited
+		}
+		id, err = q.CreateDirectConversation(ctx, db.CreateDirectConversationParams{Actor: session.ID, Peer: peer})
+		return err
+	})
+	if errors.Is(err, errMessageLimited) {
+		w.Header().Set("Retry-After", "60")
+		p.problem(w, r, http.StatusTooManyRequests, "Try again shortly", "Wait a minute before starting another conversation.")
+		return
+	}
 	if err != nil {
 		p.failure(w, r, err)
 		return
 	}
-	p.render(w, r, http.StatusOK, templates.Inbox(rows, page, unread))
+	http.Redirect(w, r, messageURL(id), http.StatusSeeOther)
 }
 
 func (p messagePages) open(w http.ResponseWriter, r *http.Request) {
@@ -70,13 +145,8 @@ func (p messagePages) open(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, messageURL(id), http.StatusSeeOther)
 }
 
-func (p messagePages) loadThread(w http.ResponseWriter, r *http.Request) (templates.ThreadData, bool) {
-	session, ok := p.requireSession(w, r)
-	if !ok {
-		return templates.ThreadData{}, false
-	}
-	id := listingID(r)
-	thread, err := p.queries.Thread(r.Context(), db.ThreadParams{ThreadID: id, Actor: session.ID})
+func (p messagePages) loadThread(w http.ResponseWriter, r *http.Request, actor, id pgtype.UUID) (templates.ThreadData, bool) {
+	thread, err := p.queries.Thread(r.Context(), db.ThreadParams{ThreadID: id, Actor: actor})
 	if err != nil {
 		p.failure(w, r, err)
 		return templates.ThreadData{}, false
@@ -85,7 +155,7 @@ func (p messagePages) loadThread(w http.ResponseWriter, r *http.Request) (templa
 	if number, err := strconv.ParseInt(r.URL.Query().Get("before"), 10, 64); err == nil && number > 0 {
 		before = number
 	}
-	rows, err := p.queries.ThreadMessages(r.Context(), db.ThreadMessagesParams{ThreadID: id, Actor: session.ID, BeforeSequence: before})
+	rows, err := p.queries.ThreadMessages(r.Context(), db.ThreadMessagesParams{ThreadID: id, Actor: actor, BeforeSequence: before})
 	if err != nil {
 		p.failure(w, r, err)
 		return templates.ThreadData{}, false
@@ -101,7 +171,7 @@ func (p messagePages) loadThread(w http.ResponseWriter, r *http.Request) (templa
 	slices.Reverse(rows)
 	data.Messages = rows
 	if data.Latest {
-		data.Events, err = p.queries.ThreadEvents(r.Context(), db.ThreadEventsParams{ThreadID: id, Actor: session.ID})
+		data.Events, err = p.queries.ThreadEvents(r.Context(), db.ThreadEventsParams{ThreadID: id, Actor: actor})
 		if err != nil {
 			p.failure(w, r, err)
 			return templates.ThreadData{}, false
@@ -110,14 +180,12 @@ func (p messagePages) loadThread(w http.ResponseWriter, r *http.Request) (templa
 	return data, true
 }
 
-func (p messagePages) thread(w http.ResponseWriter, r *http.Request) {
-	if data, ok := p.loadThread(w, r); ok {
-		p.render(w, r, http.StatusOK, templates.MessageThread(data, r.URL.Query().Get("updated")))
-	}
-}
-
 func (p messagePages) fragment(w http.ResponseWriter, r *http.Request) {
-	if data, ok := p.loadThread(w, r); ok {
+	session, ok := p.requireSession(w, r)
+	if !ok {
+		return
+	}
+	if data, loaded := p.loadThread(w, r, session.ID, listingID(r)); loaded {
 		p.render(w, r, http.StatusOK, templates.ThreadEntries(data))
 	}
 }
@@ -130,11 +198,14 @@ func (p messagePages) send(w http.ResponseWriter, r *http.Request) {
 	id := listingID(r)
 	body := strings.TrimSpace(r.PostForm.Get("message"))
 	if !validText(body, 2000) {
-		p.problem(w, r, http.StatusUnprocessableEntity, "Message could not be sent", "Enter a message between 1 and 2,000 characters.")
+		p.sendFailure(w, r, session.ID, id, body, http.StatusUnprocessableEntity, "Enter a message between 1 and 2,000 characters.")
 		return
 	}
 	err := pgx.BeginFunc(r.Context(), p.pool, func(tx pgx.Tx) error {
 		q := db.New(tx)
+		if err := q.LockMessagingActor(r.Context(), session.ID.String()); err != nil {
+			return err
+		}
 		participants, err := q.LockConversation(r.Context(), db.LockConversationParams{ThreadID: id, Actor: session.ID})
 		if err != nil {
 			return err
@@ -143,12 +214,15 @@ func (p messagePages) send(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return err
 		}
-		restricted, err := q.UserRestricted(r.Context(), session.ID)
+		if thread.Blocked {
+			return errThreadBlocked
+		}
+		limited, err := q.SendMessageLimited(r.Context(), session.ID)
 		if err != nil {
 			return err
 		}
-		if thread.Blocked || restricted {
-			return errThreadBlocked
+		if limited {
+			return errMessageLimited
 		}
 		message, err := q.AddMessage(r.Context(), db.AddMessageParams{ConversationID: id, SenderID: session.ID, Body: body})
 		if err != nil {
@@ -164,7 +238,12 @@ func (p messagePages) send(w http.ResponseWriter, r *http.Request) {
 		return q.TouchConversation(r.Context(), id)
 	})
 	if errors.Is(err, errThreadBlocked) {
-		p.problem(w, r, http.StatusForbidden, "Conversation blocked", "New messages are paused in this conversation.")
+		p.sendFailure(w, r, session.ID, id, body, http.StatusForbidden, "New messages are paused in this conversation.")
+		return
+	}
+	if errors.Is(err, errMessageLimited) {
+		w.Header().Set("Retry-After", "60")
+		p.sendFailure(w, r, session.ID, id, body, http.StatusTooManyRequests, "Wait a minute before sending another message.")
 		return
 	}
 	if err != nil {
@@ -172,6 +251,13 @@ func (p messagePages) send(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.Redirect(w, r, messageURL(id)+"?updated=sent", http.StatusSeeOther)
+}
+
+func (p messagePages) sendFailure(w http.ResponseWriter, r *http.Request, actor, id pgtype.UUID, draft string, status int, problem string) {
+	if thread, ok := p.loadThread(w, r, actor, id); ok {
+		thread.Draft, thread.Problem = draft, problem
+		p.renderWorkspace(w, r, actor, thread, status)
+	}
 }
 
 func (p messagePages) block(w http.ResponseWriter, r *http.Request) {

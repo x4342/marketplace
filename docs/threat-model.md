@@ -16,3 +16,5 @@ The reviewed system is the private Go web process and worker, a PostgreSQL datab
 Review the threat model if any new provider, upload format, public endpoint, storage processor, proxy, or administrative role changes these boundaries.
 
 M13 requires the administrator capability for system status, user and role queries, category editing, and platform audit. Staff keep their moderation and finance scopes. Role writes serialize with bootstrap and enforce an administrator floor. Category writes use CSRF, confirmation, a current revision, integrity checks, and immutable actor attribution. Public discovery retains its read-only category views.
+
+M14 public member search returns only profile-visible fields and excludes restricted accounts. Direct conversation creation is CSRF-protected, pair-unique and bounded per account. Thread reads, previews, sends, reports and participant controls remain private. A new database guard requires the exact verified order's listing conversation and snapshot for purchase event insertion. Browser storage holds only the workspace disclosure preference.

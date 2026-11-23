@@ -116,3 +116,7 @@ The existing PostgreSQL volume stores profile biographies, sanitized avatars, an
 ## M13 upgrade
 
 For M13, use the [administrator and upgrade guide](platform-administration.md) for the exact Arch Linux commands, schema-13 readiness checks, and archive recovery. The Compose project and PostgreSQL volume remain the same across the image replacement. System status moves into `/admin` and container health checks continue to use the existing probes.
+
+## M14 database upgrade
+
+Follow the [M14 compatibility and rollout guide](m14-upgrade.md) before deploying schema 16. Use the verified pre-upgrade archive and a fresh volume for rollback after direct messaging is used.

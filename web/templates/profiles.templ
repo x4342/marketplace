@@ -16,12 +16,15 @@ templ ProfileIdentity(username string) {
 	</a>
 }
 
-templ PublicProfile(profile db.PublicProfileRow, listings []db.ProfileListingsRow, rating db.SellerRatingRow, page int32, more bool) {
+templ PublicProfile(profile db.PublicProfileRow, listings []db.ProfileListingsRow, rating db.SellerRatingRow, page int32, more bool, csrf string) {
 	@AppShell(profile.Username) {
 		<div class="profile-header">
 			@Avatar(profile.Username)
 			@PageHeader(profile.Username, "Member since "+profile.CreatedAt.Time.UTC().Format("2 January 2006"))
 		</div>
+		if csrf != "" {
+			@DirectMessageAction(profile.Username, csrf)
+		}
 		if profile.Bio != "" {
 			<p class="profile-bio">{ profile.Bio }</p>
 		}
