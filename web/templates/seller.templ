@@ -56,6 +56,7 @@ templ SellerDashboard(csrf string, updated, away bool, drafts []db.SellerDraftsR
 				}
 				for _, draft := range drafts {
 					<div class="card status-card">
+						@SquareListingImage("/sell/drafts/"+draft.ID.String()+"/image", "", "seller-thumbnail", draft.HasImage)
 						<a class="seller-link" href={ templ.SafeURL("/sell/drafts/" + draft.ID.String()) }>
 							if draft.Title == "" {
 								Untitled draft
@@ -73,6 +74,7 @@ templ SellerDashboard(csrf string, updated, away bool, drafts []db.SellerDraftsR
 				}
 				for _, listing := range listings {
 					<div class="card status-card seller-panel">
+						@SquareListingImage("/sell/listings/"+listing.ID.String()+"/image", "", "seller-thumbnail", listing.HasImage)
 						<h3>{ listing.Title }</h3>
 						if listing.Status == "published" {
 							<p>Published</p>
@@ -123,8 +125,8 @@ templ SellerDraftForm(form DraftForm) {
 			<p class="alert alert-success" role="status">Draft saved.</p>
 		}
 		@SellerErrors(form.Errors)
-		<script src="/assets/seller-upload.js" defer></script>
-		<form id="seller-draft-form" class="seller-panel seller-form" method="post" enctype="multipart/form-data" action={ templ.SafeURL(form.Path()) }>
+		<script src="/assets/seller-upload.js?v=m11-crop" defer></script>
+		<form id="seller-draft-form" data-image-editor data-image-destination="/sell/drafts/" class="seller-panel seller-form" method="post" enctype="multipart/form-data" action={ templ.SafeURL(form.Path()) }>
 			<input type="hidden" name="csrf" value={ form.CSRF }/>
 			<input type="hidden" name="revision" value={ strconv.FormatInt(form.Revision, 10) }/>
 			<fieldset class="card status-card seller-panel">
@@ -158,17 +160,13 @@ templ SellerDraftForm(form DraftForm) {
 			</fieldset>
 			<fieldset class="card status-card seller-panel">
 				<legend>Listing image</legend>
-				<label>Image <input class="file-input" type="file" name="image" accept="image/jpeg,image/png" aria-describedby="image-limits"/></label>
-				<p id="image-limits">JPEG or PNG, up to 3 MB and 2048 pixels per side.</p>
+				@ImageEditor("Listing")
 				if form.HasImage {
 					<img class="seller-preview-image" src={ templ.SafeURL(form.Path() + "/image") } alt="Current draft image"/>
 					<label class="seller-check"><input class="checkbox" type="checkbox" name="remove_image" value="1"/> Remove current image</label>
 				}
 			</fieldset>
-			<div id="upload-feedback" hidden>
-				<progress class="progress" id="upload-progress" max="100" aria-label="Listing image upload"></progress>
-				<p id="upload-message" role="status"></p>
-			</div>
+			@ImageUploadFeedback()
 			<div class="seller-actions">
 				<button class="btn btn-primary" name="action" value="save">Save draft</button>
 				<button class="btn" name="action" value="preview">Save and preview</button>
@@ -204,9 +202,7 @@ templ DraftPreview(form DraftForm) {
 
 templ DraftPreviewCard(form DraftForm) {
 	<article class="card status-card seller-panel">
-		if form.HasImage {
-			<img class="seller-preview-image" src={ templ.SafeURL(form.Path() + "/image") } alt={ form.Fields.Title }/>
-		}
+		@SquareListingImage(form.Path()+"/image", form.Fields.Title, "seller-preview-image", form.HasImage)
 		<h3>{ form.Fields.Title }</h3>
 		<p>{ form.Fields.Currency + " " + form.Fields.Price }</p>
 		<p>{ form.Fields.Description }</p>

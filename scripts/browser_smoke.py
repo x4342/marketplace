@@ -1,10 +1,11 @@
 """Check the built app against the running local PostgreSQL fixture."""
 
-import base64
 import os
 import re
 import secrets
 import subprocess
+import struct
+import zlib
 from time import perf_counter
 from urllib.parse import urlsplit
 
@@ -178,6 +179,7 @@ def verify_seller(browser, base_url):
     page.get_by_label("Stock", exact=True).fill("2")
     page.get_by_label("Digital delivery").select_option("manual")
     page.get_by_label("Fulfillment terms").fill("Manual delivery after purchase")
+    page.locator("input[name=image]").set_input_files(listing_photo())
     page.get_by_role("button", name="Save and preview").click()
     expect(page.get_by_role("heading", name="Listing preview", exact=True)).to_be_visible()
     expect(page.get_by_role("region", name="Mobile preview")).to_contain_text(title)
@@ -186,14 +188,67 @@ def verify_seller(browser, base_url):
     page.screenshot(path="bin/smoke/seller-preview-375.png")
     page.get_by_role("button", name="Publish listing").click()
     expect(page.get_by_role("heading", name=title)).to_be_visible()
+    photo = page.get_by_role("img", name=title, exact=True)
+    expect(photo).to_be_visible()
+    assert photo.evaluate("img => img.naturalWidth === 400 && img.naturalHeight === 400")
     listing_url = page.url
     context.close()
     return listing_url
 
 
 
+def listing_photo():
+    def chunk(name, content):
+        return struct.pack(">I", len(content)) + name + content + struct.pack(">I", zlib.crc32(name + content))
+
+    header = struct.pack(">IIBBBBB", 640, 400, 8, 2, 0, 0, 0)
+    row = b"\0" + bytes((210, 25, 40)) * 320 + bytes((25, 65, 210)) * 320
+    return {
+        "name": "fixture.png",
+        "mimeType": "image/png",
+        "buffer": b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", header) +
+        chunk(b"IDAT", zlib.compress(row * 400)) + chunk(b"IEND", b""),
+    }
+
+
+def verify_profiles(browser, base_url, interactive=False):
+    context = browser.new_context(viewport={"width": 320, "height": 900}, java_script_enabled=interactive)
+    page = context.new_page()
+    username = register_fixture(page, base_url, "profile")
+    page.goto(base_url + "/account/profile")
+    page.get_by_label("Biography").fill("Public marketplace profile fixture")
+    page.locator("input[name=image]").set_input_files(listing_photo())
+    if interactive:
+        expect(page.locator("#crop-status")).to_contain_text("Confirm")
+        page.get_by_label("Zoom").press("End")
+        page.get_by_role("button", name="Confirm crop").click()
+        expect(page.locator("#crop-status")).to_contain_text("Crop confirmed")
+    page.get_by_role("button", name="Save profile").click()
+    expect(page.get_by_role("status").filter(has_text="Profile saved.")).to_be_visible()
+    public = base_url + "/users/" + username
+    page.goto(public)
+    expect(page.get_by_text("Public marketplace profile fixture", exact=True)).to_be_visible()
+    for width in (320, 375, 768, 1024, 1440):
+        page.set_viewport_size({"width": width, "height": 900})
+        assert page.locator("html").evaluate("node => node.scrollWidth") == width
+        assert_dark(page)
+    avatar = page.locator(".profile-header .profile-avatar")
+    expect(avatar).to_be_visible()
+    assert avatar.evaluate("img => img.naturalWidth === 256 && img.naturalHeight === 256")
+    context.clear_cookies()
+    page.reload()
+    expect(page.get_by_role("heading", name=username)).to_be_visible()
+    avatar_url = avatar.get_attribute("src")
+    page.goto(base_url + "/users/workshop")
+    expect(page.get_by_role("link", name="Visit storefront")).to_be_visible()
+    page.get_by_role("link", name="Contact seller about Compact mechanical keyboard").click()
+    expect(page.locator("#listing-contact")).to_have_text("Sign in to message the seller")
+    context.close()
+    return base_url + avatar_url
+
+
 def verify_upload_progress(browser, base_url):
-    page = browser.new_page(viewport={"width": 375, "height": 900})
+    page = browser.new_page(viewport={"width": 375, "height": 900}, has_touch=True)
     page.goto(base_url + "/register")
     page.get_by_label("Username").fill("upload_" + secrets.token_hex(6))
     page.get_by_label("New password").fill("isolated upload fixture password")
@@ -203,14 +258,49 @@ def verify_upload_progress(browser, base_url):
     page.get_by_label("Title").fill("Image upload fixture")
     file_input = page.locator("input[name=image]")
     file_input.set_input_files({
-        "name": "oversize.png", "mimeType": "image/png", "buffer": bytes(3 * 1024 * 1024 + 1)
+        "name": "oversize.png", "mimeType": "image/png", "buffer": bytes(10_000_001)
     })
-    page.get_by_role("button", name="Save draft", exact=True).click()
-    expect(page.locator("#upload-message")).to_contain_text("3 MB or less")
+    expect(page.locator("#upload-message")).to_contain_text("10 MB or less")
     expect(page.get_by_label("Title")).to_have_value("Image upload fixture")
-    file_input.set_input_files({
-        "name": "fixture.png", "mimeType": "image/png", "buffer": base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGNMrU1jYGBgYmBgYGBgAAAPiQFMBq9DwQAAAABJRU5ErkJggg==")
-    })
+    file_input.set_input_files(listing_photo())
+    crop_status = page.locator("#crop-status")
+    expect(crop_status).to_contain_text("Confirm the crop")
+    page.get_by_role("button", name="Cancel image").click()
+    expect(page.locator("#image-cropper")).to_be_hidden()
+    file_input.set_input_files(listing_photo())
+    expect(crop_status).to_contain_text("Confirm the crop")
+    preview = page.get_by_role("img", name="Square crop preview")
+    for width in (320, 375, 768, 1024, 1440):
+        page.set_viewport_size({"width": width, "height": 900})
+        area = preview.bounding_box()
+        assert area and abs(area["width"] - area["height"]) < 1
+        assert page.locator("html").evaluate("node => node.scrollWidth") == width
+    page.set_viewport_size({"width": 375, "height": 900})
+    page.get_by_label("Zoom").press("End")
+    preview.scroll_into_view_if_needed()
+    area = preview.bounding_box()
+    x, y = area["x"] + area["width"] / 2, area["y"] + area["height"] / 2
+    horizontal = page.get_by_label("Horizontal position")
+    previous = int(horizontal.input_value())
+    page.mouse.move(x, y)
+    page.mouse.down()
+    page.mouse.move(x - 50, y, steps=5)
+    page.mouse.up()
+    assert int(horizontal.input_value()) > previous
+    previous = int(horizontal.input_value())
+    touch = page.context.new_cdp_session(page)
+    touch.send("Input.dispatchTouchEvent", {"type": "touchStart", "touchPoints": [{"x": x, "y": y}]})
+    touch.send("Input.dispatchTouchEvent", {"type": "touchMove", "touchPoints": [{"x": x - 45, "y": y}]})
+    touch.send("Input.dispatchTouchEvent", {"type": "touchEnd", "touchPoints": []})
+    assert int(horizontal.input_value()) > previous
+    horizontal.press("End")
+    page.get_by_role("button", name="Confirm crop").tap()
+    expect(crop_status).to_contain_text("Crop confirmed")
+    assert preview.evaluate("""canvas => {
+        const [red, , blue] = canvas.getContext('2d').getImageData(256, 256, 1, 1).data;
+        return blue > red + 100;
+    }""")
+    page.screenshot(path="bin/smoke/crop-375.png")
 
     page.evaluate("""() => {
         const progress = document.querySelector('#upload-progress');
@@ -226,7 +316,9 @@ def verify_upload_progress(browser, base_url):
     assert submitted.value.status == 204, f"Upload returned {submitted.value.status}"
     expect(page).to_have_url(re.compile(r"/sell/drafts/[0-9a-f-]+\?saved=1$"))
     assert page.evaluate("sessionStorage.getItem('verified-upload-progress')") == "yes"
-    expect(page.locator("img[alt='Current draft image']")).to_be_visible()
+    stored = page.locator("img[alt='Current draft image']")
+    expect(stored).to_be_visible()
+    assert stored.evaluate("img => img.naturalWidth === 256 && img.naturalHeight === 256")
     expect(page.get_by_role("status")).to_contain_text("Draft saved")
     page.close()
 
@@ -489,6 +581,8 @@ def main():
             verify_discovery(browser, base_url, width)
         listing_url = verify_seller(browser, base_url)
         verify_messages(browser, base_url, listing_url)
+        verify_profiles(browser, base_url)
+        verify_profiles(browser, base_url, interactive=True)
         verify_upload_progress(browser, base_url)
         verify_orders(browser, base_url)
         verify_disputes(browser, base_url)

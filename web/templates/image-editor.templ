@@ -1,0 +1,29 @@
+package templates
+
+templ ImageEditor(kind string) {
+	<label>Image <input class="file-input" type="file" name="image" accept="image/jpeg,image/png,image/webp" aria-describedby="image-limits"/></label>
+	<p id="image-limits">JPEG, PNG or WebP, up to 10 MB and at least 256 × 256 pixels. A center crop is used when JavaScript is disabled.</p>
+	<input type="hidden" name="crop"/>
+	<section id="image-cropper" class="seller-panel" aria-labelledby="crop-heading" hidden>
+		<h2 id="crop-heading">{ "Crop " + kind + " image" }</h2>
+		<p id="crop-help">Drag the square preview to reposition the photo. You can also use the horizontal and vertical sliders.</p>
+		<canvas id="crop-preview" width="512" height="512" aria-label="Square crop preview" role="img"></canvas>
+		<div class="seller-panel" id="crop-controls">
+			<label>Horizontal position <input type="range" id="crop-x" min="0" max="1" value="0"/></label>
+			<label>Vertical position <input type="range" id="crop-y" min="0" max="1" value="0"/></label>
+			<label>Zoom <input type="range" id="crop-zoom" min="0" max="100" value="0"/></label>
+		</div>
+		<div class="seller-actions">
+			<button class="btn btn-primary" type="button" id="crop-confirm">Confirm crop</button>
+			<button class="btn" type="button" id="crop-cancel">Cancel image</button>
+		</div>
+		<p id="crop-status" role="status"></p>
+	</section>
+}
+
+templ ImageUploadFeedback() {
+	<div id="upload-feedback" hidden>
+		<progress class="progress" id="upload-progress" max="100" aria-label="Image upload"></progress>
+		<p id="upload-message" role="status"></p>
+	</div>
+}

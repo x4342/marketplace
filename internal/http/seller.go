@@ -1,10 +1,10 @@
 package web
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"io"
+	"mime"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/x4342/marketplace/internal/db"
+	"github.com/x4342/marketplace/internal/media"
 	"github.com/x4342/marketplace/internal/seller"
 	"github.com/x4342/marketplace/web/templates"
 )
@@ -27,6 +28,9 @@ func (p sellerPages) mount(mux *http.ServeMux) {
 	mux.HandleFunc("GET /sell", p.dashboard)
 	mux.HandleFunc("GET /sell/new", p.newListing)
 	mux.HandleFunc("POST /sell/new", p.save)
+	mux.HandleFunc("POST /sell/new/image-preview", p.imagePreview)
+	mux.HandleFunc("POST /sell/drafts/{id}/image-preview", p.imagePreview)
+	mux.HandleFunc("GET /sell/listings/{id}/image", p.ownerListingImage)
 	mux.HandleFunc("GET /sell/drafts/{id}", p.editDraft)
 	mux.HandleFunc("POST /sell/drafts/{id}", p.save)
 	mux.HandleFunc("GET /sell/drafts/{id}/preview", p.preview)
@@ -122,7 +126,15 @@ func (p sellerPages) save(w http.ResponseWriter, r *http.Request) {
 		}
 		form.ID, form.HasImage, form.Revision = id.String(), row.HasImage, row.Revision
 	}
-	rawImage, uploadErr := readListingSubmission(w, r)
+	if kind, _, _ := mime.ParseMediaType(r.Header.Get("Content-Type")); kind == "multipart/form-data" {
+		release, ok := media.TryAcquire()
+		if !ok {
+			http.Error(w, "Another image is being processed. Please try again.", http.StatusServiceUnavailable)
+			return
+		}
+		defer release()
+	}
+	rawImage, uploadErr := readImageSubmission(w, r)
 	if !validCSRF(r) {
 		p.denied(w, r)
 		return
@@ -133,7 +145,16 @@ func (p sellerPages) save(w http.ResponseWriter, r *http.Request) {
 	if uploadErr != nil {
 		form.Errors = append(form.Errors, uploadErr.Error())
 	} else if len(rawImage) > 0 {
-		image, uploadErr = seller.ReadImage(bytes.NewReader(rawImage))
+		var crop media.Crop
+		crop, uploadErr = media.ParseCrop(r.PostForm.Get("crop"))
+		if len(r.PostForm["crop"]) > 1 {
+			uploadErr = errors.New("Submit only one crop selection.")
+		}
+		if uploadErr == nil {
+			var result media.Result
+			result, uploadErr = media.Square(rawImage, crop)
+			image = result.JPEG
+		}
 		if uploadErr != nil {
 			form.Errors = append(form.Errors, uploadErr.Error())
 		}
@@ -180,9 +201,73 @@ func (p sellerPages) save(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, destination, http.StatusSeeOther)
 }
 
+// imagePreview returns a normalized frame without saving the source or changing the draft.
+func (p sellerPages) imagePreview(w http.ResponseWriter, r *http.Request) {
+	session, ok := p.requireSession(w, r)
+	if !ok {
+		return
+	}
+	if r.PathValue("id") != "" {
+		_, err := p.queries.SellerDraft(r.Context(), db.SellerDraftParams{ID: listingID(r), SellerID: session.ID})
+		if err != nil {
+			p.failure(w, r, err)
+			return
+		}
+	}
+	p.renderImagePreview(w, r, media.Square)
+}
+
+func (p identityPages) renderImagePreview(w http.ResponseWriter, r *http.Request, renderSquare func([]byte, media.Crop) (media.Result, error)) {
+	release, ok := media.TryAcquire()
+	if !ok {
+		http.Error(w, "Another image is being processed. Please try again.", http.StatusServiceUnavailable)
+		return
+	}
+	defer release()
+	raw, err := readImageSubmission(w, r)
+	if !validCSRF(r) {
+		p.denied(w, r)
+		return
+	}
+	if err == nil {
+		var preview media.Result
+		if selection := r.PostForm.Get("crop"); selection != "" {
+			var crop media.Crop
+			crop, err = media.ParseCrop(selection)
+			if err == nil && len(r.PostForm["crop"]) == 1 {
+				preview, err = renderSquare(raw, crop)
+			} else if err == nil {
+				err = errors.New("Submit only one crop selection.")
+			}
+		} else {
+			preview, err = media.Frame(raw)
+		}
+		if err == nil {
+			w.Header().Set("X-Image-Width", strconv.Itoa(preview.Source.X))
+			w.Header().Set("X-Image-Height", strconv.Itoa(preview.Source.Y))
+			sendJPEG(w, preview.JPEG)
+			return
+		}
+	}
+	http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+}
+
+func (p sellerPages) ownerListingImage(w http.ResponseWriter, r *http.Request) {
+	session, ok := p.requireSession(w, r)
+	if !ok {
+		return
+	}
+	data, err := p.queries.OwnerListingImage(r.Context(), db.OwnerListingImageParams{ID: listingID(r), SellerID: session.ID})
+	if err != nil {
+		p.failure(w, r, err)
+		return
+	}
+	sendJPEG(w, data)
+}
+
 // Read text fields preceding the upload so errors can redisplay unsaved edits.
-func readListingSubmission(w http.ResponseWriter, r *http.Request) ([]byte, error) {
-	r.Body = http.MaxBytesReader(w, r.Body, seller.MaxUpload+(64<<10))
+func readImageSubmission(w http.ResponseWriter, r *http.Request) ([]byte, error) {
+	r.Body = http.MaxBytesReader(w, r.Body, media.MaxUpload+(64<<10))
 	reader, err := r.MultipartReader()
 	if errors.Is(err, http.ErrNotMultipart) {
 		return nil, r.ParseForm()
@@ -205,12 +290,12 @@ func readListingSubmission(w http.ResponseWriter, r *http.Request) ([]byte, erro
 			if image != nil {
 				return nil, errors.New("Upload one listing image at a time.")
 			}
-			image, err = io.ReadAll(io.LimitReader(part, seller.MaxUpload+1))
-			if err != nil || len(image) > seller.MaxUpload {
-				return nil, errors.New("Upload a JPEG or PNG of 3 MB or less.")
+			image, err = io.ReadAll(io.LimitReader(part, media.MaxUpload+1))
+			if err != nil || len(image) > media.MaxUpload {
+				return nil, errors.New("Upload one JPEG, PNG, or WebP of 10 MB or less.")
 			}
 			if len(image) == 0 {
-				return nil, errors.New("Choose a nonempty JPEG or PNG.")
+				return nil, errors.New("Choose a nonempty JPEG, PNG, or WebP.")
 			}
 			continue
 		}

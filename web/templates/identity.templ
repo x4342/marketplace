@@ -69,6 +69,8 @@ templ RecoveryCodes(codes []string) {
 templ Account(username, csrf string, moderator, finance bool) {
 	@AppShell("Account") {
 		@PageHeader("Account", "Signed in as "+username)
+		@ProfileIdentity(username)
+		<a class="btn" href="/account/profile">Edit profile</a>
 		<section class="card status-card auth-form" aria-label="Account actions">
 			<a class="btn" href="/sell">Sell</a>
 			<a class="btn" href="/orders">Orders</a>

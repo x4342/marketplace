@@ -59,6 +59,7 @@ func routes(heartbeat heartbeatReader, log *slog.Logger, assets fs.FS, accounts 
 	if queries, ok := heartbeat.(*db.Queries); ok {
 		app.mountCatalog(mux, queries, accounts)
 		pages := identityPages{app: app, accounts: accounts}
+		profilePages{identityPages: pages, queries: queries}.mount(mux)
 		sellerPages{identityPages: pages, queries: queries, service: sales}.mount(mux)
 		messagePages{identityPages: pages, queries: queries, pool: sales.Pool}.mount(mux)
 		checkout := orders.Simulation(sales.Pool)

@@ -1,14 +1,9 @@
 package seller
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
-	"image"
-	"image/jpeg"
-	_ "image/png"
-	"io"
 	"net/url"
 	"regexp"
 	"slices"
@@ -22,8 +17,6 @@ import (
 
 	"github.com/x4342/marketplace/internal/db"
 )
-
-const MaxUpload = 3 << 20
 
 var ErrConflict = errors.New("listing draft changed")
 var decimalPrice = regexp.MustCompile(`^[0-9]{1,9}(\.[0-9]{1,2})?$`)
@@ -122,27 +115,6 @@ func (f Fields) Publication(id, owner pgtype.UUID, categories []db.CatalogCatego
 		problems = append(problems, "Choose physical or digital.")
 	}
 	return p, problems
-}
-
-func ReadImage(source io.Reader) ([]byte, error) {
-	raw, err := io.ReadAll(io.LimitReader(source, MaxUpload+1))
-	if err != nil || len(raw) > MaxUpload {
-		return nil, errors.New("Upload a JPEG or PNG of 3 MB or less.")
-	}
-	config, format, err := image.DecodeConfig(bytes.NewReader(raw))
-	if err != nil || (format != "jpeg" && format != "png") || config.Width < 1 || config.Height < 1 ||
-		config.Width > 2048 || config.Height > 2048 {
-		return nil, errors.New("Upload a JPEG or PNG no larger than 2048 pixels on either side.")
-	}
-	decoded, _, err := image.Decode(bytes.NewReader(raw))
-	if err != nil {
-		return nil, errors.New("This image could not be decoded.")
-	}
-	var output bytes.Buffer
-	if err := jpeg.Encode(&output, decoded, &jpeg.Options{Quality: 82}); err != nil || output.Len() > MaxUpload {
-		return nil, errors.New("Use a smaller or simpler image.")
-	}
-	return output.Bytes(), nil
 }
 
 type Service struct {

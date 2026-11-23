@@ -7,3 +7,4 @@
 - Check resource ownership and permissions server-side. Separate content and finance roles. Protect mutations against CSRF, minimize data collection, and exclude credentials, session tokens, wallet secrets, message bodies, and shipping addresses from logs.
 - Use integer monetary units and transactional, idempotent, append-only accounting. Keep all payment and payout providers simulated. Live integrations and public deployment require owner approval.
 - Format Go and templ source. Exercise positive, negative, migration, responsive, and no-JavaScript cases as applicable. Record actual evidence and gaps. Open focused feature PRs and leave merging and default-branch initialization to the owner unless authorized.
+- Keep media validation and image derivatives in the shared media package. Apply authorization before decoding. Store only normalized new images and preserve historical media and immutable order snapshots.

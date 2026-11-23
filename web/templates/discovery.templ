@@ -108,6 +108,7 @@ templ Discover(data DiscoveryData) {
 				@PageHeader("Saved listings", "Browse listings you saved.")
 			} else if data.Storefront.Name != "" {
 				@PageHeader(data.Storefront.Name, "Member since "+data.Storefront.MemberSince)
+				@ProfileIdentity(data.Storefront.Name)
 				@SellerRating(data.Storefront.Rating.ReviewCount, data.Storefront.Rating.Average)
 				if data.Storefront.Away {
 					<p>Seller away</p>
@@ -277,11 +278,7 @@ templ ActiveChips(data DiscoveryData) {
 
 templ ListingCard(listing db.DiscoverListingsRow, csrf, returnURL string) {
 	<article class="card listing-card">
-		if listing.HasImage {
-			<img class="listing-image" src={ templ.SafeURL("/listings/" + listing.ID.String() + "/image") } alt="" loading="lazy"/>
-		} else {
-			<div class="listing-placeholder" aria-hidden="true"></div>
-		}
+		@SquareListingImage("/listings/"+listing.ID.String()+"/image", "", "listing-image", listing.HasImage)
 		<div class="listing-content">
 			<p>{ listingKind(listing.Kind) + " · " + listing.CategoryName }</p>
 			<h2><a href={ templ.SafeURL("/listings/" + listing.ID.String()) }>{ listing.Title }</a></h2>
@@ -291,7 +288,7 @@ templ ListingCard(listing db.DiscoverListingsRow, csrf, returnURL string) {
 			} else {
 				<p>{ available(listing.Stock, listing.CanBackorder) }</p>
 			}
-			<a href={ templ.SafeURL("/stores/" + listing.SellerName) }>{ listing.SellerName }</a>
+			@ProfileIdentity(listing.SellerName)
 			@SellerRating(listing.ReviewCount, listing.SellerRating)
 			if csrf != "" {
 				@FavoriteForm(listing.ID.String(), listing.Title, csrf, returnURL, listing.Favorite)
@@ -305,9 +302,7 @@ templ ListingDetail(listing db.PublicListingRow, regions, csrf string, favorite,
 		<nav class="auth-links" aria-label="Catalog navigation"><a href="/discover">Back to discovery</a></nav>
 		@PageHeader(listing.Title, listingKind(listing.Kind)+" · "+listing.CategoryName)
 		<section class="card status-card listing-detail" aria-label="Listing details">
-			if listing.HasImage {
-				<img class="seller-preview-image" src={ templ.SafeURL("/listings/" + listing.ID.String() + "/image") } alt={ listing.Title }/>
-			}
+			@SquareListingImage("/listings/"+listing.ID.String()+"/image", listing.Title, "seller-preview-image", listing.HasImage)
 			<p class="listing-price">{ priceLabel(listing.PriceMinor, listing.Currency) }</p>
 			if listing.SellerAway {
 				<p>Seller away</p>
@@ -324,6 +319,7 @@ templ ListingDetail(listing db.PublicListingRow, regions, csrf string, favorite,
 				<p>Manual delivery</p>
 			}
 			<p>{ listing.Terms }</p>
+			@ProfileIdentity(listing.SellerName)
 			<a href={ templ.SafeURL("/stores/" + listing.SellerName) }>{ "Visit " + listing.SellerName }</a>
 			if !listing.SellerAway && (listing.Stock > 0 || listing.CanBackorder) && (listing.DeliveryMode != "automatic" || listing.DigitalAssetID.Valid) {
 				if canContact {
@@ -333,10 +329,12 @@ templ ListingDetail(listing db.PublicListingRow, regions, csrf string, favorite,
 				}
 			}
 			if canContact {
-				<form action={ templ.SafeURL("/listings/" + listing.ID.String() + "/conversation") } method="post">
+				<form id="listing-contact" action={ templ.SafeURL("/listings/" + listing.ID.String() + "/conversation") } method="post">
 					<input type="hidden" name="csrf" value={ csrf }/>
 					<button class="btn btn-primary">Message seller</button>
 				</form>
+			} else if csrf == "" {
+				<a id="listing-contact" href="/login">Sign in to message the seller</a>
 			}
 			if csrf != "" {
 				@FavoriteForm(listing.ID.String(), listing.Title, csrf, "", favorite)
@@ -363,4 +361,12 @@ templ FavoriteForm(id, title, csrf, returnURL string, favorite bool) {
 			<button type="submit" class="btn" name="favorite" value="save" aria-label={ "Save " + title }>Save listing</button>
 		}
 	</form>
+}
+
+templ SquareListingImage(path, alt, size string, hasImage bool) {
+	if hasImage {
+		<img class={ "square-listing-image", size } src={ templ.SafeURL(path) } alt={ alt } loading="lazy"/>
+	} else {
+		<div class={ "square-listing-image listing-placeholder", size } aria-hidden="true"></div>
+	}
 }

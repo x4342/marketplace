@@ -21,7 +21,9 @@ import (
 
 	"github.com/x4342/marketplace/internal/db"
 	"github.com/x4342/marketplace/internal/identity"
+	"github.com/x4342/marketplace/internal/media"
 	"github.com/x4342/marketplace/internal/seller"
+	"image/jpeg"
 )
 
 func TestSellerPostgres(t *testing.T) {
@@ -85,20 +87,37 @@ func TestSellerPostgres(t *testing.T) {
 		"region_eu": {"1"}, "terms": {"Ships in two days"},
 	}
 	rejected := postListingImage(t, &owner, draft, fields, []byte("<svg/>"), 422)
-	if !strings.Contains(rejected.Body.String(), title) || !strings.Contains(rejected.Body.String(), "Upload a JPEG or PNG") {
+	if !strings.Contains(rejected.Body.String(), title) || !strings.Contains(rejected.Body.String(), "Choose a JPEG, PNG, or WebP") {
 		t.Fatal("invalid image response lost form content or upload feedback")
 	}
-	large := postListingImage(t, &owner, draft, fields, make([]byte, seller.MaxUpload+1), 422)
-	if !strings.Contains(large.Body.String(), title) || !strings.Contains(large.Body.String(), "3 MB or less") {
+	large := postListingImage(t, &owner, draft, fields, make([]byte, media.MaxUpload+1), 422)
+	if !strings.Contains(large.Body.String(), title) || !strings.Contains(large.Body.String(), "10 MB or less") {
 		t.Fatal("oversized upload lost form content or size feedback")
 	}
 	var imageBytes bytes.Buffer
-	if err := png.Encode(&imageBytes, image.NewRGBA(image.Rect(0, 0, 10, 10))); err != nil {
+	if err := png.Encode(&imageBytes, image.NewRGBA(image.Rect(0, 0, 512, 320))); err != nil {
 		t.Fatal(err)
 	}
+	postListingImage(t, &other, draft, fields, imageBytes.Bytes(), 404)
+	postListingImage(t, &other, draft+"/image-preview", fields, imageBytes.Bytes(), 404)
+	fields.Set("csrf", "incorrect")
+	postListingImage(t, &owner, draft+"/image-preview", fields, imageBytes.Bytes(), 403)
+	fields.Del("csrf")
+	frame := postListingImage(t, &owner, draft+"/image-preview", fields, imageBytes.Bytes(), 200)
+	if rr := frame.Header(); rr.Get("X-Image-Width") != "512" || rr.Get("X-Image-Height") != "320" {
+		t.Fatal("preview did not report oriented source dimensions")
+	}
+	fields.Set("crop", "300,0,256")
+	postListingImage(t, &owner, draft, fields, imageBytes.Bytes(), 422)
+	fields.Set("crop", "96,0,320")
+	square := postListingImage(t, &owner, draft+"/image-preview", fields, imageBytes.Bytes(), 200)
+	fields.Del("crop")
 	postListingImage(t, &owner, draft, fields, imageBytes.Bytes(), 303)
 	owner.post(draft, fields, 409)
-	owner.call("GET", draft+"/image", nil, 200)
+	savedImage := owner.call("GET", draft+"/image", nil, 200)
+	if !bytes.Equal(square.Body.Bytes(), savedImage.Body.Bytes()) {
+		t.Fatal("server preview and saved center crop use different bytes")
+	}
 	other.call("GET", draft+"/image", nil, 404)
 	guest.call("GET", public+"/image", nil, 404)
 	preview := owner.call("GET", draft+"/preview", nil, 200).Body.String()
@@ -107,9 +126,13 @@ func TestSellerPostgres(t *testing.T) {
 	}
 	owner.post(draft+"/publish", url.Values{"revision": {"2"}}, 303)
 	owner.call("GET", draft, nil, 404)
-	if img := guest.call("GET", public+"/image", nil, 200); img.Header().Get("Content-Type") != "image/jpeg" || !bytes.HasPrefix(img.Body.Bytes(), []byte{0xff, 0xd8}) {
-		t.Fatal("published image was not served as re-encoded JPEG")
+	img := guest.call("GET", public+"/image", nil, 200)
+	cfg, decodeErr := jpeg.DecodeConfig(bytes.NewReader(img.Body.Bytes()))
+	if img.Header().Get("Content-Type") != "image/jpeg" || decodeErr != nil || cfg.Width != 320 || cfg.Height != 320 {
+		t.Fatal("published fallback image was not served as a center-cropped square JPEG")
 	}
+	other.call("GET", "/sell/listings/"+id+"/image", nil, 404)
+	owner.call("GET", "/sell/listings/"+id+"/image", nil, 200)
 	if body := guest.call("GET", public, nil, 200).Body.String(); !strings.Contains(body, "EUR 12.50") || !strings.Contains(body, title) {
 		t.Fatal("publication did not expose valid listing fields")
 	}
