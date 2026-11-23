@@ -72,7 +72,11 @@ docker compose up -d --wait --wait-timeout 120
 target=$(find db/migrations -name '*.sql' -printf '%f\n' | sort | tail -1 | cut -d_ -f1 | sed 's/^0*//')
 test "$(version)" = "$target"
 test "$(docker inspect --format '{{.State.ExitCode}}' "$(docker compose ps -aq migrate)")" = 0
-test "$(docker compose port web 8080)" = 137.0.0.1:8080
+published=$(docker compose port web 8080)
+if [[ "$published" != 127.0.0.1:8080 ]]; then
+  printf 'Expected loopback publication. Actual value was %s\n' "$published" >&2
+  exit 1
+fi
 docker compose exec -T worker /app/container-health worker
 db -At < "$scratch/snapshot.sql" > "$scratch/upgraded.snapshot"
 cmp "$scratch/prior.snapshot" "$scratch/upgraded.snapshot"
