@@ -10,3 +10,5 @@
 - Keep media validation and image derivatives in the shared media package. Apply authorization before decoding. Store only normalized new images and preserve historical media and immutable order snapshots.
 
 - Use stable category UUIDs for administration. Preserve old slugs, listing associations, and archived category and role changes. Run upgrade and restore drills only with isolated data.
+
+- M14 registration uses canonical lowercase ASCII alphanumeric usernames of 3–20 characters. Existing usernames and identity references are retained. Validate new passwords as 8–128 Unicode code points and preserve their supplied bytes during authentication.

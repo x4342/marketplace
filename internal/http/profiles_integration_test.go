@@ -38,12 +38,12 @@ func TestProfilesPostgres(t *testing.T) {
 	owner := testClient{t: t, handler: handler}
 	guest := testClient{t: t, handler: handler}
 	other := testClient{t: t, handler: handler}
-	name := "profile_" + strings.ToLower(identity.NewToken()[:10])
+	name := "prof" + strings.ToLower(identity.NewToken()[:10])
 	name = strings.NewReplacer("-", "a", "_", "b").Replace(name)
 	const password = "a profile test passphrase"
 	owner.call("GET", "/register", nil, 200)
 	owner.post("/register", url.Values{"username": {name}, "password": {password}}, 200)
-	viewer, err := accounts.Register(ctx, name+"_viewer", password)
+	viewer, err := accounts.Register(ctx, name+"viewer", password)
 	if err != nil {
 		t.Fatal(err)
 	}

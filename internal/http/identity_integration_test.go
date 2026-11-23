@@ -39,9 +39,9 @@ func TestIdentityPostgres(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	var suffix [8]byte
+	var suffix [7]byte
 	_, _ = rand.Read(suffix[:])
-	aliceName, bobName := "alice_"+hex.EncodeToString(suffix[:]), "bob_"+hex.EncodeToString(suffix[:])
+	aliceName, bobName := "alice"+hex.EncodeToString(suffix[:]), "bob"+hex.EncodeToString(suffix[:])
 	defer func() {
 		_, _ = pool.Exec(ctx, "DELETE FROM security_events WHERE user_id IN (SELECT id FROM users WHERE username IN ($1, $2))", aliceName, bobName)
 		_, _ = pool.Exec(ctx, "DELETE FROM users WHERE username IN ($1, $2)", aliceName, bobName)
@@ -53,6 +53,17 @@ func TestIdentityPostgres(t *testing.T) {
 	nextPassword := "replacement password 456"
 
 	alice.call("POST", "/register", url.Values{"username": {aliceName}, "password": {password}}, 403)
+	alice.post("/register", url.Values{"username": {"with_under"}, "password": {"12345678"}}, 422)
+	alice.post("/register", url.Values{"username": {"badspace"}, "password": {"1234567"}}, 422)
+	alice.post("/register", url.Values{"username": {"oversized"}, "password": {strings.Repeat("x", 4100)}}, 403)
+	emoji := strings.Repeat("🦊", 126) + "é "
+	emojiName := "emoji" + aliceName[5:]
+	emojiUser := testClient{t: t, handler: handler}
+	emojiUser.call("GET", "/register", nil, 200)
+	emojiUser.post("/register", url.Values{"username": {strings.ToUpper(emojiName)}, "password": {emoji}}, 200)
+	emojiUser.post("/login", url.Values{"username": {emojiName}, "password": {strings.TrimSpace(emoji)}}, 422)
+	emojiUser.post("/login", url.Values{"username": {strings.ToUpper(emojiName)}, "password": {emoji}}, 303)
+
 	alice.call("GET", "/register", nil, 200)
 	enrollment := alice.post("/register", url.Values{"username": {aliceName}, "password": {password}}, 200)
 	codePattern := regexp.MustCompile(`<code>([a-zA-Z0-9_-]{43})</code>`)
@@ -68,7 +79,7 @@ func TestIdentityPostgres(t *testing.T) {
 	alice.call("GET", "/admin/finance", nil, 403)
 
 	bob.call("GET", "/register", nil, 200)
-	bob.post("/register", url.Values{"username": {aliceName}, "password": {password}}, 409)
+	bob.post("/register", url.Values{"username": {strings.ToUpper(aliceName)}, "password": {password}}, 409)
 	bob.post("/register", url.Values{"username": {bobName}, "password": {password}}, 200)
 
 	a, err := service.Active(ctx, alice.session)

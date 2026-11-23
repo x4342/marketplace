@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"regexp"
 	"strings"
+	"unicode"
 	"unicode/utf8"
 
 	"golang.org/x/crypto/argon2"
@@ -18,17 +19,32 @@ const (
 	keyBytes    = 32
 )
 
-var validUsername = regexp.MustCompile(`^[a-z0-9_]{3,30}$`)
+var (
+	legacyUsername = regexp.MustCompile(`^[a-z0-9_]{3,30}$`)
+	newUsername    = regexp.MustCompile(`^[a-z0-9]{3,20}$`)
+)
 
 func NormalizeUsername(username string) string {
-	return strings.ToLower(strings.TrimSpace(username))
+	return strings.Map(func(r rune) rune {
+		if r >= 'A' && r <= 'Z' {
+			return r + ('a' - 'A')
+		}
+		return r
+	}, username)
 }
 
-func ValidUsername(username string) bool { return validUsername.MatchString(username) }
+func ValidUsername(username string) bool { return legacyUsername.MatchString(username) }
 
-func Validate(username, password string) bool {
-	length := utf8.RuneCountInString(password)
-	return ValidUsername(username) && utf8.ValidString(password) && length >= 12 && length <= 128
+func ValidNewUsername(username string) bool { return newUsername.MatchString(username) }
+
+func ValidPasswordInput(password string) bool {
+	return len(password) > 0 && len(password) <= 128*utf8.UTFMax &&
+		utf8.ValidString(password) && utf8.RuneCountInString(password) <= 128
+}
+
+func ValidNewPassword(password string) bool {
+	return ValidPasswordInput(password) && utf8.RuneCountInString(password) >= 8 &&
+		!strings.ContainsFunc(password, unicode.IsControl)
 }
 
 func passwordHash(password string) []byte {

@@ -47,7 +47,7 @@ func TestReviewsPostgres(t *testing.T) {
 		var token [6]byte
 		_, _ = rand.Read(token[:])
 		client.call("GET", "/register", nil, 200)
-		client.post("/register", url.Values{"username": {prefix + "_" + hex.EncodeToString(token[:])}, "password": {"isolated safe fixture password"}}, 200)
+		client.post("/register", url.Values{"username": {prefix[:min(len(prefix), 8)] + hex.EncodeToString(token[:])}, "password": {"isolated safe fixture password"}}, 200)
 		account, err := accounts.Active(ctx, client.session)
 		if err != nil {
 			t.Fatal(err)

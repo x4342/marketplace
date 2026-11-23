@@ -42,10 +42,10 @@ func TestSellerPostgres(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	var random [8]byte
+	var random [7]byte
 	_, _ = rand.Read(random[:])
 	suffix := hex.EncodeToString(random[:])
-	ownerName, otherName := "seller_"+suffix, "other_"+suffix
+	ownerName, otherName := "seller"+suffix, "other"+suffix
 	defer func() {
 		_, _ = pool.Exec(ctx, "DELETE FROM listings WHERE seller_id IN (SELECT id FROM users WHERE username IN ($1, $2))", ownerName, otherName)
 		_, _ = pool.Exec(ctx, "DELETE FROM security_events WHERE user_id IN (SELECT id FROM users WHERE username IN ($1, $2))", ownerName, otherName)

@@ -38,7 +38,7 @@ func TestMessagesPostgres(t *testing.T) {
 	var token [8]byte
 	_, _ = rand.Read(token[:])
 	suffix := hex.EncodeToString(token[:])
-	buyerName, sellerName, guestName := "buyer_"+suffix, "seller_"+suffix, "other_"+suffix
+	buyerName, sellerName, guestName := "buyer"+suffix, "seller"+suffix, "other"+suffix
 	names := []string{buyerName, sellerName, guestName}
 	defer func() {
 		tables := []string{"notifications", "reports", "conversation_blocks", "conversation_reads", "messages"}

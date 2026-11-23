@@ -141,7 +141,7 @@ def verify_identity(browser, base_url):
         viewport={"width": 320, "height": 900}, java_script_enabled=False
     )
     page = context.new_page()
-    username = "browser_" + secrets.token_hex(6)
+    username = "browser" + secrets.token_hex(6)
     password = "isolated fixture password"
     page.goto(base_url + "/register")
     assert_dark(page)
@@ -218,7 +218,7 @@ def verify_seller(browser, base_url):
     )
     page = context.new_page()
     page.goto(base_url + "/register")
-    username = "seller_" + secrets.token_hex(6)
+    username = "seller" + secrets.token_hex(6)
     page.get_by_label("Username").fill(username)
     page.get_by_label("New password").fill("isolated seller fixture password")
     page.get_by_role("button", name="Create account").click()
@@ -308,7 +308,7 @@ def verify_profiles(browser, base_url, interactive=False):
 def verify_upload_progress(browser, base_url):
     page = browser.new_page(viewport={"width": 375, "height": 900}, has_touch=True)
     page.goto(base_url + "/register")
-    page.get_by_label("Username").fill("upload_" + secrets.token_hex(6))
+    page.get_by_label("Username").fill("upload" + secrets.token_hex(6))
     page.get_by_label("New password").fill("isolated upload fixture password")
     page.get_by_role("button", name="Create account").click()
     page.goto(base_url + "/sell/new")
@@ -387,7 +387,7 @@ def verify_messages(browser, base_url, listing_url):
     )
     page = context.new_page()
     page.goto(base_url + "/register")
-    page.get_by_label("Username").fill("buyer_" + secrets.token_hex(6))
+    page.get_by_label("Username").fill("buyer" + secrets.token_hex(6))
     page.get_by_label("New password").fill("isolated buyer fixture password")
     page.get_by_role("button", name="Create account").click()
     page.goto(listing_url)
@@ -416,7 +416,7 @@ def verify_messages(browser, base_url, listing_url):
 
 def register_fixture(page, base_url, prefix):
     page.goto(base_url + "/register")
-    username = prefix + "_" + secrets.token_hex(6)
+    username = prefix[:8] + secrets.token_hex(6)
     page.get_by_label("Username").fill(username)
     page.get_by_label("New password").fill("isolated orders fixture password")
     page.get_by_role("button", name="Create account").click()

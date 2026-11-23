@@ -48,7 +48,7 @@ func TestFinancePostgres(t *testing.T) {
 		_, _ = rand.Read(token[:])
 		client := &testClient{t: t, handler: handler}
 		client.call("GET", "/register", nil, 200)
-		client.post("/register", url.Values{"username": {prefix + "_" + hex.EncodeToString(token[:])}, "password": {"isolated finance fixture password"}}, 200)
+		client.post("/register", url.Values{"username": {prefix[:min(len(prefix), 8)] + hex.EncodeToString(token[:])}, "password": {"isolated finance fixture password"}}, 200)
 		actor, err := accounts.Active(ctx, client.session)
 		if err != nil {
 			t.Fatal(err)

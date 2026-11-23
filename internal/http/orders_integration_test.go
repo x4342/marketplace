@@ -51,7 +51,7 @@ func TestOrdersPostgres(t *testing.T) {
 		var token [8]byte
 		_, _ = rand.Read(token[:])
 		client.call("GET", "/register", nil, 200)
-		client.post("/register", url.Values{"username": {prefix + "_" + hex.EncodeToString(token[:])}, "password": {"isolated fixture passphrase"}}, 200)
+		client.post("/register", url.Values{"username": {prefix[:min(len(prefix), 8)] + hex.EncodeToString(token[:])}, "password": {"isolated fixture passphrase"}}, 200)
 	}
 
 	b, err := accounts.Active(ctx, buyer.session)
