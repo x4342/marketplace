@@ -92,9 +92,17 @@ func TestRolesPostgres(t *testing.T) {
 	if err := accounts.RestoreAdmin(ctx, password); !errors.Is(err, identity.ErrInvalid) {
 		t.Fatal("old password could restore role")
 	}
+	if _, err := pool.Exec(ctx, "DELETE FROM role_assignments WHERE role='admin'"); err != nil {
+		t.Fatal(err)
+	}
+	admin.call("GET", "/ops/health", nil, 403)
 	if err := accounts.RestoreAdmin(ctx, next); err != nil {
 		t.Fatal(err)
 	}
+	admin.call("GET", "/ops/health", nil, 303)
+	admin.call("GET", "/login", nil, 200)
+	admin.post("/login", url.Values{"username": {"admin"}, "password": {next}}, 303)
+	admin.call("GET", "/ops/health", nil, 200)
 	if _, err := pool.Exec(ctx, "UPDATE role_change_events SET new_role='admin'"); err == nil {
 		t.Fatal("role history is mutable")
 	}

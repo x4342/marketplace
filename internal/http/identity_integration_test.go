@@ -87,15 +87,15 @@ func TestIdentityPostgres(t *testing.T) {
 	}
 	alice.call("GET", "/account", nil, 200)
 
-	if _, err := pool.Exec(ctx, "INSERT INTO role_assignments VALUES ($1, 'moderator'), ($2, 'admin')", a.ID, b.ID); err != nil {
+	if _, err := pool.Exec(ctx, "INSERT INTO role_assignments VALUES ($1, 'moderator')", a.ID); err != nil {
 		t.Fatal(err)
 	}
 	alice.call("GET", "/admin/moderation", nil, 200)
 	alice.call("GET", "/admin/finance", nil, 200)
 	alice.call("GET", "/ops/health", nil, 403)
-	bob.call("GET", "/admin/finance", nil, 200)
-	bob.call("GET", "/admin/moderation", nil, 200)
-	bob.call("GET", "/ops/health", nil, 200)
+	bob.call("GET", "/admin/finance", nil, 403)
+	bob.call("GET", "/admin/moderation", nil, 403)
+	bob.call("GET", "/ops/health", nil, 403)
 
 	alice.post("/recover", url.Values{"username": {aliceName}, "password": {nextPassword}, "code": {codes[0][1]}}, 200)
 	if _, err := service.Active(ctx, oldCookie); err != identity.ErrInvalid {

@@ -172,10 +172,12 @@ func TestFinancePostgres(t *testing.T) {
 	}
 	browserAct(payout, "approve", 409)
 	browserAct(payout, "review", 303)
-	if _, err := pool.Exec(ctx, "INSERT INTO role_assignments(user_id,role) VALUES ($1,'moderator')", sellerID); err != nil {
-		t.Fatal(err)
+	for _, role := range []string{"moderator", "admin"} {
+		if _, err := pool.Exec(ctx, "INSERT INTO role_assignments(user_id,role) VALUES ($1,$2) ON CONFLICT(user_id) DO UPDATE SET role=excluded.role", sellerID, role); err != nil {
+			t.Fatal(err)
+		}
+		sellerClient.post(modPath, url.Values{"action": {"approve"}, "reason": {"Self approval must fail"}, "staff_password": {"isolated finance fixture password"}}, 403)
 	}
-	sellerClient.post(modPath, url.Values{"action": {"approve"}, "reason": {"Self approval must fail"}, "staff_password": {"isolated finance fixture password"}}, 403)
 	if _, err := pool.Exec(ctx, "DELETE FROM role_assignments WHERE user_id=$1", sellerID); err != nil {
 		t.Fatal(err)
 	}
