@@ -133,6 +133,20 @@ func TestPlatformPostgres(t *testing.T) {
 	if strings.Contains(form, `value="keyboard-accessories"`) || strings.Contains(form, `value="audio-accessories"`) {
 		t.Fatal("inactive category tree is selectable by a new listing")
 	}
+	draft := member.post("/sell/new", url.Values{
+		"title": {"Inactive category fixture"}, "description": {"Synthetic listing draft"},
+		"category": {"accessories"}, "kind": {"physical"}, "price": {"12.50"},
+		"currency": {"EUR"}, "stock": {"2"}, "condition": {"used"},
+		"region_eu": {"1"}, "terms": {"Synthetic terms"},
+	}, 303).Header().Get("Location")
+	draft = strings.Split(draft, "?")[0]
+	if preview := member.call("GET", draft+"/preview", nil, 200).Body.String(); !strings.Contains(preview, "Choose a current category.") {
+		t.Fatal("saved draft was allowed to publish into an inactive category")
+	}
+	redirect := member.post(draft+"/publish", url.Values{"revision": {"1"}}, 303).Header().Get("Location")
+	if redirect != draft+"/preview" {
+		t.Fatal("publication accepted an inactive legacy slug")
+	}
 	detail := guest.call("GET", "/listings/892351c3-15c9-468e-a61f-b948658c18e5", nil, 200).Body.String()
 	if !strings.Contains(detail, "Keyboard accessories") {
 		t.Fatal("inactive category lost existing listing details")

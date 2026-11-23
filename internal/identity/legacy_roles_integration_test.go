@@ -64,7 +64,7 @@ func TestLegacyRolesPostgres(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := provider.Up(ctx); err != nil {
+	if _, err := provider.UpTo(ctx, 12); err != nil {
 		t.Fatal(err)
 	}
 	for name, want := range map[string]string{
