@@ -29,7 +29,7 @@ func TestListingUploadRejectsSecondImage(t *testing.T) {
 	}
 	request := httptest.NewRequest(http.MethodPost, "/sell/drafts", &body)
 	request.Header.Set("Content-Type", writer.FormDataContentType())
-	image, err := readListingSubmission(httptest.NewRecorder(), request)
+	image, err := readImageSubmission(httptest.NewRecorder(), request)
 	if len(image) != 0 || err == nil || err.Error() != "Upload one listing image at a time." {
 		t.Fatalf("expected duplicate image rejection, got %d image bytes and %v", len(image), err)
 	}

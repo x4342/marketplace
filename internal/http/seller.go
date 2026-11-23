@@ -134,7 +134,7 @@ func (p sellerPages) save(w http.ResponseWriter, r *http.Request) {
 		}
 		defer release()
 	}
-	rawImage, uploadErr := readListingSubmission(w, r)
+	rawImage, uploadErr := readImageSubmission(w, r)
 	if !validCSRF(r) {
 		p.denied(w, r)
 		return
@@ -214,13 +214,17 @@ func (p sellerPages) imagePreview(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	p.renderImagePreview(w, r, media.Square)
+}
+
+func (p identityPages) renderImagePreview(w http.ResponseWriter, r *http.Request, renderSquare func([]byte, media.Crop) (media.Result, error)) {
 	release, ok := media.TryAcquire()
 	if !ok {
 		http.Error(w, "Another image is being processed. Please try again.", http.StatusServiceUnavailable)
 		return
 	}
 	defer release()
-	raw, err := readListingSubmission(w, r)
+	raw, err := readImageSubmission(w, r)
 	if !validCSRF(r) {
 		p.denied(w, r)
 		return
@@ -231,7 +235,7 @@ func (p sellerPages) imagePreview(w http.ResponseWriter, r *http.Request) {
 			var crop media.Crop
 			crop, err = media.ParseCrop(selection)
 			if err == nil && len(r.PostForm["crop"]) == 1 {
-				preview, err = media.Square(raw, crop)
+				preview, err = renderSquare(raw, crop)
 			} else if err == nil {
 				err = errors.New("Submit only one crop selection.")
 			}
@@ -262,7 +266,7 @@ func (p sellerPages) ownerListingImage(w http.ResponseWriter, r *http.Request) {
 }
 
 // Read text fields preceding the upload so errors can redisplay unsaved edits.
-func readListingSubmission(w http.ResponseWriter, r *http.Request) ([]byte, error) {
+func readImageSubmission(w http.ResponseWriter, r *http.Request) ([]byte, error) {
 	r.Body = http.MaxBytesReader(w, r.Body, media.MaxUpload+(64<<10))
 	reader, err := r.MultipartReader()
 	if errors.Is(err, http.ErrNotMultipart) {

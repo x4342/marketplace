@@ -31,7 +31,7 @@ templ Inbox(items []db.InboxRow, page int32, unread int64) {
 			for _, item := range items {
 				<article class="card status-card seller-panel">
 					<h2><a class="seller-link" href={ templ.SafeURL("/messages/" + item.ID.String()) }>{ item.Title }</a></h2>
-					<p>{ "Conversation with " + item.Peer }</p>
+					@ProfileIdentity(item.Peer)
 					if item.Unread {
 						<p>Unread messages</p>
 					}
@@ -94,6 +94,7 @@ templ MessagePages(path string, page int32, hasMore bool) {
 templ MessageThread(data ThreadData, updated string) {
 	@AppShell(data.Thread.Title) {
 		@PageHeader(data.Thread.Title, "Conversation with "+data.Thread.Peer)
+		@ProfileIdentity(data.Thread.Peer)
 		<div class="msg-thread seller-panel">
 			<nav class="auth-links" aria-label="Conversation navigation">
 				<a href="/messages">Inbox</a>

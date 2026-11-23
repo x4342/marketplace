@@ -1,0 +1,81 @@
+package templates
+
+import (
+	"github.com/x4342/marketplace/internal/db"
+	"strconv"
+)
+
+templ Avatar(username string) {
+	<img class="profile-avatar" width="40" height="40" loading="lazy" src={ templ.SafeURL("/users/" + username + "/avatar") } alt=""/>
+}
+
+templ ProfileIdentity(username string) {
+	<a class="profile-identity" href={ templ.SafeURL("/users/" + username) }>
+		@Avatar(username)
+		<span>{ username }</span>
+	</a>
+}
+
+templ PublicProfile(profile db.PublicProfileRow, listings []db.ProfileListingsRow, rating db.SellerRatingRow, page int32, more bool) {
+	@AppShell(profile.Username) {
+		<div class="profile-header">
+			@Avatar(profile.Username)
+			@PageHeader(profile.Username, "Member since "+profile.CreatedAt.Time.UTC().Format("2 January 2006"))
+		</div>
+		if profile.Bio != "" {
+			<p class="profile-bio">{ profile.Bio }</p>
+		}
+		if rating.ReviewCount > 0 {
+			@SellerRating(rating.ReviewCount, rating.Average)
+		}
+		<section class="seller-panel" aria-labelledby="profile-listings">
+			<h2 id="profile-listings">Published listings</h2>
+			if len(listings) == 0 {
+				<p>No published listings on this page.</p>
+			} else {
+				<a class="btn" href={ templ.SafeURL("/stores/" + profile.Username) }>Visit storefront</a>
+			}
+			<ul class="seller-panel">
+				for _, listing := range listings {
+					<li class="card status-card">
+						<a class="seller-link" href={ templ.SafeURL("/listings/" + listing.ID.String()) }>{ listing.Title }</a>
+						<p>{ priceLabel(listing.PriceMinor, listing.Currency) }</p>
+					</li>
+				}
+			</ul>
+			<nav class="seller-actions" aria-label="Profile listing pages">
+				if page > 1 {
+					<a class="btn" href={ templ.SafeURL("?page=" + strconv.FormatInt(int64(page-1), 10)) }>Previous page</a>
+				}
+				if more {
+					<a class="btn" href={ templ.SafeURL("?page=" + strconv.FormatInt(int64(page+1), 10)) }>Next page</a>
+				}
+			</nav>
+		</section>
+	}
+}
+
+templ EditProfile(bio string, hasAvatar bool, csrf string, saved bool, problems []string) {
+	@AppShell("Edit profile") {
+		@PageHeader("Edit profile", "Your avatar and biography are public when your profile is visible.")
+		if saved {
+			<p class="alert alert-success" role="status">Profile saved.</p>
+		}
+		@SellerErrors(problems)
+		<script src="/assets/seller-upload.js?v=m12" defer></script>
+		<form class="seller-panel seller-form" data-image-editor data-image-destination="/account/profile?" method="post" enctype="multipart/form-data" action="/account/profile">
+			<input type="hidden" name="csrf" value={ csrf }/>
+			<label>Biography <textarea class="textarea" name="bio" maxlength="500" rows="5">{ bio }</textarea></label>
+			<fieldset class="card status-card seller-panel">
+				<legend>Profile picture</legend>
+				<img class="profile-avatar" width="40" height="40" src="/account/profile/avatar" alt="Current profile picture"/>
+				@ImageEditor("Avatar")
+				if hasAvatar {
+					<label><input type="checkbox" name="remove_image" value="1"/> Remove avatar</label>
+				}
+			</fieldset>
+			@ImageUploadFeedback()
+			<button class="btn btn-primary" name="action" value="save">Save profile</button>
+		</form>
+	}
+}

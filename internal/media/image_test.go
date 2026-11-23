@@ -54,7 +54,7 @@ func TestSquareLimits(t *testing.T) {
 			}
 		})
 	}
-	var writer limitedBuffer
+	writer := limitedBuffer{limit: MaxUpload}
 	if _, err := writer.Write(make([]byte, MaxUpload)); err != nil {
 		t.Fatal(err)
 	}
@@ -124,5 +124,16 @@ func TestWebPDecode(t *testing.T) {
 	cfg, err := jpeg.DecodeConfig(bytes.NewReader(result.JPEG))
 	if err != nil || cfg.Width != 256 || cfg.Height != 256 {
 		t.Fatalf("unexpected WebP conversion: %v (%v)", cfg, err)
+	}
+}
+
+func TestAvatarDerivative(t *testing.T) {
+	image, err := Avatar(encodePNG(t, 500, 320), Crop{X: 175, Y: 25, Side: 280})
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := jpeg.DecodeConfig(bytes.NewReader(image.JPEG))
+	if err != nil || cfg.Width != 256 || cfg.Height != 256 || len(image.JPEG) >= 512*1024 {
+		t.Fatalf("invalid avatar dimensions or size: %v, %d, %v", cfg, len(image.JPEG), err)
 	}
 }

@@ -108,6 +108,7 @@ templ Discover(data DiscoveryData) {
 				@PageHeader("Saved listings", "Browse listings you saved.")
 			} else if data.Storefront.Name != "" {
 				@PageHeader(data.Storefront.Name, "Member since "+data.Storefront.MemberSince)
+				@ProfileIdentity(data.Storefront.Name)
 				@SellerRating(data.Storefront.Rating.ReviewCount, data.Storefront.Rating.Average)
 				if data.Storefront.Away {
 					<p>Seller away</p>
@@ -287,7 +288,7 @@ templ ListingCard(listing db.DiscoverListingsRow, csrf, returnURL string) {
 			} else {
 				<p>{ available(listing.Stock, listing.CanBackorder) }</p>
 			}
-			<a href={ templ.SafeURL("/stores/" + listing.SellerName) }>{ listing.SellerName }</a>
+			@ProfileIdentity(listing.SellerName)
 			@SellerRating(listing.ReviewCount, listing.SellerRating)
 			if csrf != "" {
 				@FavoriteForm(listing.ID.String(), listing.Title, csrf, returnURL, listing.Favorite)
@@ -318,6 +319,7 @@ templ ListingDetail(listing db.PublicListingRow, regions, csrf string, favorite,
 				<p>Manual delivery</p>
 			}
 			<p>{ listing.Terms }</p>
+			@ProfileIdentity(listing.SellerName)
 			<a href={ templ.SafeURL("/stores/" + listing.SellerName) }>{ "Visit " + listing.SellerName }</a>
 			if !listing.SellerAway && (listing.Stock > 0 || listing.CanBackorder) && (listing.DeliveryMode != "automatic" || listing.DigitalAssetID.Valid) {
 				if canContact {
