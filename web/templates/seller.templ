@@ -125,7 +125,7 @@ templ SellerDraftForm(form DraftForm) {
 			<p class="alert alert-success" role="status">Draft saved.</p>
 		}
 		@SellerErrors(form.Errors)
-		<script src="/assets/seller-upload.js?v=m11" defer></script>
+		<script src="/assets/seller-upload.js?v=m11-crop" defer></script>
 		<form id="seller-draft-form" class="seller-panel seller-form" method="post" enctype="multipart/form-data" action={ templ.SafeURL(form.Path()) }>
 			<input type="hidden" name="csrf" value={ form.CSRF }/>
 			<input type="hidden" name="revision" value={ strconv.FormatInt(form.Revision, 10) }/>

@@ -445,6 +445,10 @@ body {
   touch-action: none;
 }
 
+#image-cropper button {
+  touch-action: manipulation;
+}
+
 #image-cropper[hidden] {
   display: none;
 }

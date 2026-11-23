@@ -128,9 +128,32 @@ if (draftForm && typeof XMLHttpRequest === 'function' && typeof createImageBitma
     requestPreview('');
   });
 
+  function cropButton(button, activate) {
+    let tap;
+    button.addEventListener('pointerdown', (event) => {
+      if (event.pointerType === 'touch' && event.isPrimary) {
+        tap = {id: event.pointerId, x: event.clientX, y: event.clientY};
+      }
+    });
+    button.addEventListener('pointercancel', () => { tap = undefined; });
+    button.addEventListener('pointerup', (event) => {
+      if (!tap || event.pointerId !== tap.id) return;
+      const withinButton = button.contains(document.elementFromPoint(event.clientX, event.clientY));
+      const moved = Math.hypot(event.clientX - tap.x, event.clientY - tap.y);
+      tap = undefined;
+      if (withinButton && moved < 10) activate();
+    });
+    button.addEventListener('click', activate);
+  }
+
   controls.forEach((control) => control.addEventListener('input', paint));
-  confirm.addEventListener('click', () => requestPreview(selection().join(',')));
-  get('crop-cancel').addEventListener('click', () => {
+  cropButton(confirm, () => {
+    if (!frame || pending) return;
+    const selected = selection().join(',');
+    if (crop.value !== selected) requestPreview(selected);
+  });
+  cropButton(get('crop-cancel'), () => {
+    if (editor.hidden) return;
     discard();
     input.value = '';
     input.focus();

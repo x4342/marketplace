@@ -212,7 +212,7 @@ def listing_photo():
 
 
 def verify_upload_progress(browser, base_url):
-    page = browser.new_page(viewport={"width": 375, "height": 900})
+    page = browser.new_page(viewport={"width": 375, "height": 900}, has_touch=True)
     page.goto(base_url + "/register")
     page.get_by_label("Username").fill("upload_" + secrets.token_hex(6))
     page.get_by_label("New password").fill("isolated upload fixture password")
@@ -251,8 +251,14 @@ def verify_upload_progress(browser, base_url):
     page.mouse.move(x - 50, y, steps=5)
     page.mouse.up()
     assert int(horizontal.input_value()) > previous
+    previous = int(horizontal.input_value())
+    touch = page.context.new_cdp_session(page)
+    touch.send("Input.dispatchTouchEvent", {"type": "touchStart", "touchPoints": [{"x": x, "y": y}]})
+    touch.send("Input.dispatchTouchEvent", {"type": "touchMove", "touchPoints": [{"x": x - 45, "y": y}]})
+    touch.send("Input.dispatchTouchEvent", {"type": "touchEnd", "touchPoints": []})
+    assert int(horizontal.input_value()) > previous
     horizontal.press("End")
-    page.get_by_role("button", name="Confirm crop").click()
+    page.get_by_role("button", name="Confirm crop").tap()
     expect(crop_status).to_contain_text("Crop confirmed")
     assert preview.evaluate("""canvas => {
         const [red, , blue] = canvas.getContext('2d').getImageData(256, 256, 1, 1).data;
