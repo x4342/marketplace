@@ -241,7 +241,17 @@ def verify_upload_progress(browser, base_url):
         assert page.locator("html").evaluate("node => node.scrollWidth") == width
     page.set_viewport_size({"width": 375, "height": 900})
     page.get_by_label("Zoom").press("End")
-    page.get_by_label("Horizontal position").press("End")
+    preview.scroll_into_view_if_needed()
+    area = preview.bounding_box()
+    x, y = area["x"] + area["width"] / 2, area["y"] + area["height"] / 2
+    horizontal = page.get_by_label("Horizontal position")
+    previous = int(horizontal.input_value())
+    page.mouse.move(x, y)
+    page.mouse.down()
+    page.mouse.move(x - 50, y, steps=5)
+    page.mouse.up()
+    assert int(horizontal.input_value()) > previous
+    horizontal.press("End")
     page.get_by_role("button", name="Confirm crop").click()
     expect(crop_status).to_contain_text("Crop confirmed")
     assert preview.evaluate("""canvas => {

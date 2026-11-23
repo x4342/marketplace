@@ -180,8 +180,7 @@ func (p photo) At(x, y int) color.Color {
 }
 
 func derivative(src image.Image, crop image.Rectangle, w, h int) (Result, error) {
-	dst := image.NewRGBA(image.Rect(0, 0, w, h))
-	xdraw.CatmullRom.Scale(dst, dst.Bounds(), src, crop, xdraw.Src, nil)
+	dst := resize(src, crop, w, h)
 	var out limitedBuffer
 	for _, quality := range []int{90, 84, 76, 68} {
 		out.Reset()
@@ -194,6 +193,29 @@ func derivative(src image.Image, crop image.Rectangle, w, h int) (Result, error)
 		}
 	}
 	return Result{}, errOutputLimit
+}
+
+// Stage large reductions to avoid the cubic scaler's 32-byte-per-sample
+// working buffer for tall source images. Each approximate pass reduces either
+// axis by no more than a factor of two, preserving detail in successive samples.
+func resize(src image.Image, crop image.Rectangle, w, h int) *image.RGBA {
+	dst := image.NewRGBA(image.Rect(0, 0, w, h))
+	if crop.Size() == dst.Bounds().Size() {
+		xdraw.Draw(dst, dst.Bounds(), src, crop.Min, xdraw.Src)
+		return dst
+	}
+	const maxCubicSamples = 2_000_000
+	for crop.Dx() > 2*w || crop.Dy() > 2*h {
+		next := image.NewRGBA(image.Rect(0, 0, max(w, (crop.Dx()+1)/2), max(h, (crop.Dy()+1)/2)))
+		xdraw.ApproxBiLinear.Scale(next, next.Bounds(), src, crop, xdraw.Src, nil)
+		src, crop = next, next.Bounds()
+	}
+	scaler := xdraw.ApproxBiLinear
+	if w*crop.Dy() <= maxCubicSamples {
+		scaler = xdraw.CatmullRom
+	}
+	scaler.Scale(dst, dst.Bounds(), src, crop, xdraw.Src, nil)
+	return dst
 }
 
 var errOutputLimit = errors.New("The processed JPEG exceeds 10 MB. Choose a smaller crop.")

@@ -100,16 +100,24 @@ func TestSellerPostgres(t *testing.T) {
 	}
 	postListingImage(t, &other, draft, fields, imageBytes.Bytes(), 404)
 	postListingImage(t, &other, draft+"/image-preview", fields, imageBytes.Bytes(), 404)
+	fields.Set("csrf", "incorrect")
+	postListingImage(t, &owner, draft+"/image-preview", fields, imageBytes.Bytes(), 403)
+	fields.Del("csrf")
 	frame := postListingImage(t, &owner, draft+"/image-preview", fields, imageBytes.Bytes(), 200)
 	if rr := frame.Header(); rr.Get("X-Image-Width") != "512" || rr.Get("X-Image-Height") != "320" {
 		t.Fatal("preview did not report oriented source dimensions")
 	}
 	fields.Set("crop", "300,0,256")
 	postListingImage(t, &owner, draft, fields, imageBytes.Bytes(), 422)
+	fields.Set("crop", "96,0,320")
+	square := postListingImage(t, &owner, draft+"/image-preview", fields, imageBytes.Bytes(), 200)
 	fields.Del("crop")
 	postListingImage(t, &owner, draft, fields, imageBytes.Bytes(), 303)
 	owner.post(draft, fields, 409)
-	owner.call("GET", draft+"/image", nil, 200)
+	saved := owner.call("GET", draft+"/image", nil, 200)
+	if !bytes.Equal(square.Body.Bytes(), saved.Body.Bytes()) {
+		t.Fatal("server preview and saved center crop use different bytes")
+	}
 	other.call("GET", draft+"/image", nil, 404)
 	guest.call("GET", public+"/image", nil, 404)
 	preview := owner.call("GET", draft+"/preview", nil, 200).Body.String()
