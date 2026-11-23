@@ -99,3 +99,10 @@ sudo docker compose --env-file recovery.env -p marketplace-recovery -f compose.p
 ```
 
 In Portainer, set `MARKETPLACE_DB_VOLUME` to the recovered volume name and `MARKETPLACE_IMAGE` to the previous compatible image, then redeploy and check health. Keep the archive protected because it can contain private account and marketplace data. No automatic down migration runs during application rollback.
+
+
+## Listing image storage
+
+M11 stores listing and draft JPEGs in PostgreSQL. The existing `marketplace_marketplace-data` volume contains the images and the application's other data. Keep the same volume on upgrades. The app image stays read-only and the stack uses the existing port mappings. Include the database volume in the documented backup and recovery process.
+
+Migration `00010` raises existing JPEG column limits without rewriting media. If a new upload exceeds the former 3 MiB limit, PostgreSQL refuses a schema downgrade to that limit. Keep version 10 in place for a compatible app rollback or use the pre-upgrade backup procedure when the older schema is required. See the [media guide](listing-media.md).

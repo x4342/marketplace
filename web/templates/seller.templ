@@ -56,6 +56,7 @@ templ SellerDashboard(csrf string, updated, away bool, drafts []db.SellerDraftsR
 				}
 				for _, draft := range drafts {
 					<div class="card status-card">
+						@SquareListingImage("/sell/drafts/"+draft.ID.String()+"/image", "", "seller-thumbnail", draft.HasImage)
 						<a class="seller-link" href={ templ.SafeURL("/sell/drafts/" + draft.ID.String()) }>
 							if draft.Title == "" {
 								Untitled draft
@@ -73,6 +74,7 @@ templ SellerDashboard(csrf string, updated, away bool, drafts []db.SellerDraftsR
 				}
 				for _, listing := range listings {
 					<div class="card status-card seller-panel">
+						@SquareListingImage("/sell/listings/"+listing.ID.String()+"/image", "", "seller-thumbnail", listing.HasImage)
 						<h3>{ listing.Title }</h3>
 						if listing.Status == "published" {
 							<p>Published</p>
@@ -158,8 +160,24 @@ templ SellerDraftForm(form DraftForm) {
 			</fieldset>
 			<fieldset class="card status-card seller-panel">
 				<legend>Listing image</legend>
-				<label>Image <input class="file-input" type="file" name="image" accept="image/jpeg,image/png" aria-describedby="image-limits"/></label>
-				<p id="image-limits">JPEG or PNG, up to 3 MB and 2048 pixels per side.</p>
+				<label>Image <input class="file-input" type="file" name="image" accept="image/jpeg,image/png,image/webp" aria-describedby="image-limits"/></label>
+				<p id="image-limits">JPEG, PNG or WebP, up to 10 MB and at least 256 × 256 pixels. A center crop is used when JavaScript is disabled.</p>
+				<input type="hidden" name="crop"/>
+				<section id="image-cropper" class="seller-panel" aria-labelledby="crop-heading" hidden>
+					<h2 id="crop-heading">Crop listing image</h2>
+					<p id="crop-help">Drag the square preview to reposition the photo. You can also use the horizontal and vertical sliders.</p>
+					<canvas id="crop-preview" width="512" height="512" aria-label="Square crop preview" role="img"></canvas>
+					<div class="seller-panel" id="crop-controls">
+						<label>Horizontal position <input type="range" id="crop-x" min="0" max="1" value="0"/></label>
+						<label>Vertical position <input type="range" id="crop-y" min="0" max="1" value="0"/></label>
+						<label>Zoom <input type="range" id="crop-zoom" min="0" max="100" value="0"/></label>
+					</div>
+					<div class="seller-actions">
+						<button class="btn btn-primary" type="button" id="crop-confirm">Confirm crop</button>
+						<button class="btn" type="button" id="crop-cancel">Cancel image</button>
+					</div>
+					<p id="crop-status" role="status"></p>
+				</section>
 				if form.HasImage {
 					<img class="seller-preview-image" src={ templ.SafeURL(form.Path() + "/image") } alt="Current draft image"/>
 					<label class="seller-check"><input class="checkbox" type="checkbox" name="remove_image" value="1"/> Remove current image</label>
@@ -204,9 +222,7 @@ templ DraftPreview(form DraftForm) {
 
 templ DraftPreviewCard(form DraftForm) {
 	<article class="card status-card seller-panel">
-		if form.HasImage {
-			<img class="seller-preview-image" src={ templ.SafeURL(form.Path() + "/image") } alt={ form.Fields.Title }/>
-		}
+		@SquareListingImage(form.Path()+"/image", form.Fields.Title, "seller-preview-image", form.HasImage)
 		<h3>{ form.Fields.Title }</h3>
 		<p>{ form.Fields.Currency + " " + form.Fields.Price }</p>
 		<p>{ form.Fields.Description }</p>
