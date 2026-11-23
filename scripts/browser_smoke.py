@@ -142,7 +142,7 @@ def verify_identity(browser, base_url):
     )
     page = context.new_page()
     username = "browser" + secrets.token_hex(6)
-    password = "isolated fixture password"
+    password = " é" + "🦊" * 124 + "★ "
     page.goto(base_url + "/register")
     assert_dark(page)
     page.get_by_label("Username").fill(username)
