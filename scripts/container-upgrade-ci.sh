@@ -67,7 +67,8 @@ test -s "$scratch/marketplace.dump"
 
 export MARKETPLACE_IMAGE=$image_next
 docker compose up -d --wait --wait-timeout 120
-test "$(version)" = 13
+target=$(find db/migrations -name '*.sql' -printf '%f\n' | sort | tail -1 | cut -d_ -f1 | sed 's/^0*//')
+test "$(version)" = "$target"
 test "$(docker inspect --format '{{.State.ExitCode}}' "$(docker compose ps -aq migrate)")" = 0
 test "$(docker compose port web 8080)" = 127.0.0.1:8080
 docker compose exec -T worker /app/container-health worker
