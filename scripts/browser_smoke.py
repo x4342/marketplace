@@ -224,7 +224,7 @@ def verify_profiles(browser, base_url, interactive=False):
         page.get_by_role("button", name="Confirm crop").click()
         expect(page.locator("#crop-status")).to_contain_text("Crop confirmed")
     page.get_by_role("button", name="Save profile").click()
-    expect(page.get_by_role("status")).to_contain_text("Profile saved")
+    expect(page.get_by_role("status").filter(has_text="Profile saved.")).to_be_visible()
     public = base_url + "/users/" + username
     page.goto(public)
     expect(page.get_by_text("Public marketplace profile fixture", exact=True)).to_be_visible()

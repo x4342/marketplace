@@ -71,7 +71,7 @@ func TestProfilesPostgres(t *testing.T) {
 		}
 	}
 	picture := guest.call("GET", public+"/avatar", nil, 200)
-	conf, err := jpeg.DecodeConfig(picture.Body)
+	conf, err := jpeg.DecodeConfig(bytes.NewReader(picture.Body.Bytes()))
 	if err != nil || conf.Width != 256 || conf.Height != 256 || picture.Body.Len() >= 512*1024 {
 		t.Fatal("invalid public avatar")
 	}
