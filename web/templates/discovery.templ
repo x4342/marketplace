@@ -277,11 +277,7 @@ templ ActiveChips(data DiscoveryData) {
 
 templ ListingCard(listing db.DiscoverListingsRow, csrf, returnURL string) {
 	<article class="card listing-card">
-		if listing.HasImage {
-			<img class="listing-image" src={ templ.SafeURL("/listings/" + listing.ID.String() + "/image") } alt="" loading="lazy"/>
-		} else {
-			<div class="listing-placeholder" aria-hidden="true"></div>
-		}
+		@SquareListingImage("/listings/"+listing.ID.String()+"/image", "", "listing-image", listing.HasImage)
 		<div class="listing-content">
 			<p>{ listingKind(listing.Kind) + " · " + listing.CategoryName }</p>
 			<h2><a href={ templ.SafeURL("/listings/" + listing.ID.String()) }>{ listing.Title }</a></h2>
@@ -305,9 +301,7 @@ templ ListingDetail(listing db.PublicListingRow, regions, csrf string, favorite,
 		<nav class="auth-links" aria-label="Catalog navigation"><a href="/discover">Back to discovery</a></nav>
 		@PageHeader(listing.Title, listingKind(listing.Kind)+" · "+listing.CategoryName)
 		<section class="card status-card listing-detail" aria-label="Listing details">
-			if listing.HasImage {
-				<img class="seller-preview-image" src={ templ.SafeURL("/listings/" + listing.ID.String() + "/image") } alt={ listing.Title }/>
-			}
+			@SquareListingImage("/listings/"+listing.ID.String()+"/image", listing.Title, "seller-preview-image", listing.HasImage)
 			<p class="listing-price">{ priceLabel(listing.PriceMinor, listing.Currency) }</p>
 			if listing.SellerAway {
 				<p>Seller away</p>
@@ -363,4 +357,12 @@ templ FavoriteForm(id, title, csrf, returnURL string, favorite bool) {
 			<button type="submit" class="btn" name="favorite" value="save" aria-label={ "Save " + title }>Save listing</button>
 		}
 	</form>
+}
+
+templ SquareListingImage(path, alt, size string, hasImage bool) {
+	if hasImage {
+		<img class={ "square-listing-image", size } src={ templ.SafeURL(path) } alt={ alt } loading="lazy"/>
+	} else {
+		<div class={ "square-listing-image listing-placeholder", size } aria-hidden="true"></div>
+	}
 }

@@ -61,14 +61,26 @@ jobs:
         run: |
           python -m pip install playwright==1.55.0
           python -m playwright install --with-deps chromium
+          mkdir -p bin/smoke
           python - <<'PY'
+          from pathlib import Path
           from playwright.sync_api import sync_playwright
-          from scripts.browser_smoke import verify_identity
+          from scripts.browser_smoke import verify_identity, verify_seller
           with sync_playwright() as playwright:
               browser = playwright.chromium.launch()
               verify_identity(browser, "http://127.0.0.1:8080")
+              url = verify_seller(browser, "http://127.0.0.1:8080")
+              Path("bin/smoke/listing-image-url").write_text(url + "/image")
               browser.close()
           PY
+      - name: Verify persisted media after container replacement
+        run: |
+          image_url=$(cat bin/smoke/listing-image-url)
+          curl -fsS "$image_url" > bin/smoke/before.jpg
+          docker compose down
+          docker compose up -d --wait --wait-timeout 120
+          curl -fsS "$image_url" > bin/smoke/after.jpg
+          cmp bin/smoke/before.jpg bin/smoke/after.jpg
       - name: Collect diagnostics and remove test containers and volumes
         if: always()
         run: |

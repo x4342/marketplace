@@ -9,12 +9,17 @@ FROM listing_drafts
 WHERE id = $1 AND seller_id = $2;
 
 -- name: SellerDrafts :many
-SELECT id, coalesce(fields->>'title', '')::text AS title, updated_at
+SELECT id, coalesce(fields->>'title', '')::text AS title, updated_at, (image_jpeg IS NOT NULL)::boolean AS has_image
 FROM listing_drafts WHERE seller_id = $1 ORDER BY updated_at DESC, id;
 
 -- name: SellerListings :many
-SELECT id, title, status, delivery_mode
-FROM listings WHERE seller_id = $1 ORDER BY updated_at DESC, id;
+SELECT l.id, l.title, l.status, l.delivery_mode,
+    EXISTS(SELECT 1 FROM listing_images i WHERE i.listing_id=l.id)::boolean AS has_image
+FROM listings l WHERE l.seller_id = $1 ORDER BY l.updated_at DESC, l.id;
+
+-- name: OwnerListingImage :one
+SELECT i.image_jpeg FROM listing_images i JOIN listings l ON l.id = i.listing_id
+WHERE l.id = $1 AND l.seller_id = $2;
 
 -- name: UpdateListingDraft :execrows
 UPDATE listing_drafts

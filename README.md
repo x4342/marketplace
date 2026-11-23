@@ -77,7 +77,7 @@ Price comparisons use the dated simulated USD/EUR rate in migration 00003. Listi
 
 Sign in and open **Sell** from your account. Start a private draft, save partial details, preview at desktop and mobile widths, and publish when the required fields are complete. Editing a published listing creates an independent draft. Pausing or removing it hides the listing and its media from the public catalog.
 
-Uploads accept JPEG and PNG up to 3 MB and 2048 pixels per side. The server decodes and re-encodes the image as JPEG. Vacation mode displays an away status on the seller’s published listings. Checkout enforcement belongs to the later order workflow.
+Listing photos accept JPEG, PNG and WebP up to 10 MB with each source dimension at least 256 pixels. Confirm a square crop in the browser, or save without JavaScript to use a center crop. The [media guide](docs/listing-media.md) documents processing and storage. Vacation mode displays an away status on the seller’s published listings. Checkout enforcement belongs to the later order workflow.
 
 Run the seller integration tests against a migrated disposable database with catalog fixtures.
 
